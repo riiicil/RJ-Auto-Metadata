@@ -20,7 +20,7 @@ def convert_eps_to_jpg(eps_path, output_jpg_path, stop_event=None):
             - error_message: String pesan error (None jika sukses)
     """
     filename = os.path.basename(eps_path)
-    log_message(f"  Mencoba konversi EPS ke JPG menggunakan Ghostscript: {filename}")
+    # log_message(f"  Mencoba konversi EPS ke JPG menggunakan Ghostscript: {filename}")
     
     # Daftar perintah Ghostscript yang mungkin ada
     gs_commands = ['gswin64c', 'gs']
@@ -44,7 +44,7 @@ def convert_eps_to_jpg(eps_path, output_jpg_path, stop_event=None):
         ]
         
         try:
-            log_message(f"  Menjalankan: {' '.join(command)}")
+            # log_message(f"  Menjalankan: {' '.join(command)}")
             process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,

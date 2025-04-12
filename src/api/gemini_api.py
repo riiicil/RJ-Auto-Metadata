@@ -263,7 +263,7 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
     _, ext = os.path.splitext(image_path)
     allowed_api_ext = ('.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif')
     if not ext.lower() in allowed_api_ext:
-        # log_message(f"  Skipping API call for non-raster file type sent to API: {os.path.basename(image_path)}")
+        log_message(f"  Skipping API call for non-raster file type sent to API: {os.path.basename(image_path)}")
         return None
     retries = 0
     image_basename = os.path.basename(image_path)
@@ -277,7 +277,7 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
             base_delay = API_RETRY_DELAY * (2 ** (retries - 1))
             jitter = random.uniform(0, 0.5 * base_delay)
             actual_delay = base_delay + jitter
-            # log_message(f"  Mencoba ulang API call ({retries+1}/{API_MAX_RETRIES}) untuk {image_basename} dalam {actual_delay:.1f} detik...")
+            log_message(f"  Mencoba ulang API call ({retries+1}/{API_MAX_RETRIES}) untuk {image_basename} dalam {actual_delay:.1f} detik...")
             if stop_event:
                 interval = 0.1
                 remaining = actual_delay
@@ -297,12 +297,12 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
             if check_stop_event(stop_event, f"  API request dibatalkan: {image_basename}"):
                 return "stopped"
             api_endpoint = get_api_endpoint(selected_model)
-            # log_message(f"  Mengirim {image_basename} ke Gemini API menggunakan model {selected_model}...")
+            log_message(f"  Mengirim {image_basename} ke Gemini API menggunakan model {selected_model}...")
             try:
                 with open(image_path, "rb") as image_file:
                     image_data = base64.b64encode(image_file.read()).decode("utf-8")
             except Exception as e:
-                # log_message(f"  Error membaca file gambar: {e}")
+                log_message(f"  Error membaca file gambar: {e}")
                 return {"error": f"File read error: {str(e)}"}
             mime_type = f"image/{ext.lower().replace('.', '')}"
             if mime_type == "image/jpg": mime_type = "image/jpeg"
@@ -310,13 +310,13 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
                  mime_type = "image/jpeg"
             if use_video_prompt:
                 selected_prompt = PROMPT_TEXT_VIDEO
-                # log_message(f"  Menggunakan prompt: Video")
+                log_message(f"  Menggunakan prompt: Video")
             elif use_png_prompt:
                 selected_prompt = PROMPT_TEXT_PNG
-                # log_message(f"  Menggunakan prompt: PNG/EPS Khusus")
+                log_message(f"  Menggunakan prompt: PNG/EPS Khusus")
             else:
                 selected_prompt = PROMPT_TEXT
-                # log_message(f"  Menggunakan prompt: Standar")
+                log_message(f"  Menggunakan prompt: Standar")
             payload = {
                 "contents": [{"parts": [{"text": selected_prompt}, {"inline_data": {"mime_type": mime_type, "data": image_data}}]}],
                 "safetySettings": [
@@ -377,30 +377,30 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
                 raise response_container['error']
             response = response_container['response']
             if stop_event.is_set(): 
-                # log_message(f"  API request dibatalkan: {image_basename}")
+                log_message(f"  API request dibatalkan: {image_basename}")
                 return "stopped"
             try:
                 response_data = response.json()
             except json.JSONDecodeError:
-                 # log_message(f"  Error: Respons API bukan JSON valid (Status: {response.status_code}).")
-                 # log_message(f"  Respons mentah (awal): {response.text[:200]}...")
+                 log_message(f"  Error: Respons API bukan JSON valid (Status: {response.status_code}).")
+                 log_message(f"  Respons mentah (awal): {response.text[:200]}...")
                  retries += 1
                  continue
             if response.status_code != 200:
                 error_details = response_data.get("error", {})
                 error_code = error_details.get("code", "UNKNOWN")
                 error_message = error_details.get("message", "No error message")
-                # log_message(f"  API Error [{selected_model}]: {error_code} - {error_message}")
+                log_message(f"  API Error [{selected_model}]: {error_code} - {error_message}")
                 if error_code == 429:
                     with MODEL_LOCK:
                         MODEL_RATE_LIMITERS[selected_model].tokens = max(0, MODEL_RATE_LIMITERS[selected_model].tokens - 5)
-                    # log_message("  Rate limit exceeded. Menunggu lebih lama...")
+                    log_message("  Rate limit exceeded. Menunggu lebih lama...")
                     exponential_wait = 10 * (3 ** retries) 
                     jitter = random.uniform(0, exponential_wait * 0.3)  
                     wait_time = exponential_wait + jitter
                     if api_key in API_RATE_LIMITERS:
                         API_RATE_LIMITERS[api_key].tokens = max(0, API_RATE_LIMITERS[api_key].tokens - 5)
-                    # log_message(f"  !!! RATE LIMIT !!! Menunggu {wait_time:.1f} detik sebelum mencoba dengan model lain...")
+                    log_message(f"  !!! RATE LIMIT !!! Menunggu {wait_time:.1f} detik sebelum mencoba dengan model lain...")
                     time.sleep(wait_time)
                     retries += 1
                     continue
@@ -435,38 +435,38 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
                             )
                         return {"title": title, "description": description, "tags": tags}
                     else:
-                        # log_message("  Error: Gagal mengekstrak metadata dari respons Gemini.")
+                        log_message("  Error: Gagal mengekstrak metadata dari respons Gemini.")
                         retries += 1
                         continue
                 else:
-                    # log_message(f"  Error: Struktur respons Gemini tidak valid (tidak ada 'parts'/'text').")
+                    log_message(f"  Error: Struktur respons Gemini tidak valid (tidak ada 'parts'/'text').")
                     retries += 1
                     continue
             elif "promptFeedback" in response_data:
                 feedback = response_data.get('promptFeedback', {})
                 block_reason = feedback.get('blockReason', 'UNKNOWN')
-                # log_message(f"  Error: Respons diblokir oleh Gemini. Alasan: {block_reason}")
+                log_message(f"  Error: Respons diblokir oleh Gemini. Alasan: {block_reason}")
                 return {"error": f"Content blocked: {block_reason}"}
             else:
-                # log_message(f"  Error: Respons Gemini tidak berisi 'candidates'.")
+                log_message(f"  Error: Respons Gemini tidak berisi 'candidates'.")
                 retries += 1
                 continue
         except requests.exceptions.Timeout:
-            # log_message(f"  Error: Timeout API untuk {image_basename}. Mencoba lagi...")
+            log_message(f"  Error: Timeout API untuk {image_basename}. Mencoba lagi...")
             retries += 1
             continue
         except requests.exceptions.SSLError as e:
-            # log_message(f"  Error SSL: {e}")
+            log_message(f"  Error SSL: {e}")
             retries += 1
             time.sleep(2)
             continue
         except requests.exceptions.ConnectionError as e:
-            # log_message(f"  Error koneksi: {e}")
+            log_message(f"  Error koneksi: {e}")
             retries += 1
             time.sleep(2)
             continue
         except requests.exceptions.RequestException as e:
-            # log_message(f"  Error request: {e}")
+            log_message(f"  Error request: {e}")
             retries += 1
             continue
         except Exception as e:
@@ -496,25 +496,25 @@ def get_gemini_metadata_with_key_rotation(image_path, api_keys, stop_event: thre
             return "stopped"
         available_keys = [k for k in shuffled_keys if k not in blacklisted_keys]
         if not available_keys:
-            # log_message(f"  Semua API key rate limited. Menunggu 10 detik sebelum mencoba lagi...")
+            log_message(f"  Semua API key rate limited. Menunggu 10 detik sebelum mencoba lagi...")
             time.sleep(10)
             blacklisted_keys.clear()
             available_keys = shuffled_keys
         available_models = [m for m in GEMINI_MODELS if m not in blacklisted_models]
         if not available_models:
-            # log_message(f"  Semua model rate limited. Menunggu 5 detik sebelum mencoba lagi...")
+            log_message(f"  Semua model rate limited. Menunggu 5 detik sebelum mencoba lagi...")
             time.sleep(5)
             blacklisted_models.clear()
         api_key = available_keys[attempt % len(available_keys)]
         used_keys.add(api_key)
-        # log_message(f"  Mengirim {image_basename} ke Gemini API menggunakan key #{shuffled_keys.index(api_key)+1}...")
+        log_message(f"  Mengirim {image_basename} ke Gemini API menggunakan key #{shuffled_keys.index(api_key)+1}...")
         wait_for_api_key_cooldown(api_key)
         try:
             result = _call_gemini_api_once(image_path, api_key, stop_event)
             if result != "error_429" and result != "error_other":
                 return result
             if result == "error_429":
-                # log_message(f"  API key #{shuffled_keys.index(api_key)+1} rate limited. Mencoba kombinasi lain...")
+                log_message(f"  API key #{shuffled_keys.index(api_key)+1} rate limited. Mencoba kombinasi lain...")
                 blacklisted_keys.add(api_key)
             if result == "error_other":
                 log_message(f"")
@@ -523,9 +523,9 @@ def get_gemini_metadata_with_key_rotation(image_path, api_keys, stop_event: thre
         attempt += 1
         if attempt > len(api_keys) and attempt < max_attempts:
             delay = 5 + (attempt - len(api_keys)) * 2 
-            # log_message(f"  Menunggu {delay} detik sebelum mencoba kombinasi API key berikutnya...")
+            log_message(f"  Menunggu {delay} detik sebelum mencoba kombinasi API key berikutnya...")
             time.sleep(delay)
-    # log_message(f"  Semua percobaan kombinasi API key dan model gagal untuk {image_basename}")
+    log_message(f"  Semua percobaan kombinasi API key dan model gagal untuk {image_basename}")
     return {"error": "Maximum retries exceeded with all API keys and models"}
 
 def _call_gemini_api_once(image_path, api_key, stop_event: threading.Event):
@@ -539,7 +539,7 @@ def _call_gemini_api_once(image_path, api_key, stop_event: threading.Event):
         selected_model = select_next_model()
         wait_for_model_cooldown(selected_model)
         api_endpoint = get_api_endpoint(selected_model)
-        # log_message(f"  Menggunakan model: {selected_model}")
+        log_message(f"  Menggunakan model: {selected_model}")
         try:
             with open(image_path, "rb") as image_file:
                 image_data = base64.b64encode(image_file.read()).decode("utf-8")
@@ -582,7 +582,7 @@ def _call_gemini_api_once(image_path, api_key, stop_event: threading.Event):
         try:
             response_data = response.json()
         except json.JSONDecodeError:
-            # log_message(f"  Error: Respons API bukan JSON valid (Status: {response.status_code}).")
+            log_message(f"  Error: Respons API bukan JSON valid (Status: {response.status_code}).")
             with MODEL_LOCK:
                 MODEL_RATE_LIMITERS[selected_model].tokens = max(0, MODEL_RATE_LIMITERS[selected_model].tokens - 2)
             return "error_other"
@@ -590,11 +590,11 @@ def _call_gemini_api_once(image_path, api_key, stop_event: threading.Event):
             error_details = response_data.get("error", {})
             error_code = error_details.get("code", "UNKNOWN")
             error_message = error_details.get("message", "No error message")
-            # log_message(f"  API Error [{selected_model}]: {error_code} - {error_message}")
+            log_message(f"  API Error [{selected_model}]: {error_code} - {error_message}")
             if error_code == 429:
                 with MODEL_LOCK:
                     MODEL_RATE_LIMITERS[selected_model].tokens = max(0, MODEL_RATE_LIMITERS[selected_model].tokens - 5)
-                # log_message(f"  Model {selected_model} terkena rate limit, akan dirotasi ke model lain.")
+                log_message(f"  Model {selected_model} terkena rate limit, akan dirotasi ke model lain.")
                 return "error_429"
             else:
                 return "error_other"
@@ -624,25 +624,25 @@ def _call_gemini_api_once(image_path, api_key, stop_event: threading.Event):
                         )
                     return {"title": title, "description": description, "tags": tags}
                 else:
-                    # log_message(f"  Error: Gagal mengekstrak metadata dari respons {selected_model}.")
+                    log_message(f"  Error: Gagal mengekstrak metadata dari respons {selected_model}.")
                     return "error_other"
             else:
-                # log_message(f"  Error: Struktur respons {selected_model} tidak valid (tidak ada 'parts'/'text').")
+                log_message(f"  Error: Struktur respons {selected_model} tidak valid (tidak ada 'parts'/'text').")
                 return "error_other"
         elif "promptFeedback" in response_data:
             feedback = response_data.get('promptFeedback', {})
             block_reason = feedback.get('blockReason', 'UNKNOWN')
-            # log_message(f"  Error: Respons diblokir oleh {selected_model}. Alasan: {block_reason}")
+            log_message(f"  Error: Respons diblokir oleh {selected_model}. Alasan: {block_reason}")
             return {"error": f"Content blocked by {selected_model}: {block_reason}"}
         else:
-            # log_message(f"  Error: Respons {selected_model} tidak berisi 'candidates'.")
+            log_message(f"  Error: Respons {selected_model} tidak berisi 'candidates'.")
             return "error_other"
     except requests.exceptions.Timeout:
-        # log_message(f"  Error: Timeout API.")
+        log_message(f"  Error: Timeout API.")
         return "error_other"
     except requests.exceptions.ConnectionError:
-        # log_message(f"  Error koneksi.")
+        log_message(f"  Error koneksi.")
         return "error_other" 
     except Exception as e:
-        # log_message(f"  Error tak terduga: {e}")
+        log_message(f"  Error tak terduga: {e}")
         return "error_other"

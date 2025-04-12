@@ -92,7 +92,8 @@ class MetadataApp(ctk.CTk):
         self.rename_files_var = tk.BooleanVar(value=False)
         self.delay_var = tk.StringVar(value="10")
         self.workers_var = tk.StringVar(value="1")
-        self.api_keys_list = []
+        self._actual_api_keys = [] # Store the real keys internally
+        self.show_api_keys_var = tk.BooleanVar(value=False) # Variable for the toggle checkbox
         self.progress_text_var = tk.StringVar(value="Proses: Siap memulai")
         
         # Counters
@@ -287,11 +288,30 @@ Gambar dari folder input akan diproses dengan API, kemudian disalin ke folder ou
 
         Semakin banyak API key, semakin cepat proses batch.
         """
-        api_header = self._create_header_with_help(api_frame, "API Keys", api_header_tooltip, font=ctk.CTkFont(size=15, weight="bold"))
-        api_header.grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        # --- API Header Frame ---
+        api_header_frame = ctk.CTkFrame(api_frame, fg_color="transparent")
+        api_header_frame.grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+
+        api_header = self._create_header_with_help(api_header_frame, "API Keys", api_header_tooltip, font=ctk.CTkFont(size=15, weight="bold"))
+        api_header.pack(side=tk.LEFT, padx=(0, 10)) # Pack header to the left
+
+        # --- Show/Hide Checkbox ---
+        # --- Show/Hide Switch ---
+        self.show_api_keys_switch = ctk.CTkSwitch(
+            api_header_frame,
+            text="Tampilkan Key",
+            variable=self.show_api_keys_var,
+            command=self._toggle_api_key_visibility,
+            font=self.font_small,
+            switch_width=35, # Adjust width if needed
+            switch_height=18 # Adjust height if needed
+        )
+        self.show_api_keys_switch.pack(side=tk.LEFT, padx=(5, 0)) # Pack switch next to header
         
         self.api_textbox = ctk.CTkTextbox(api_frame, height=105, corner_radius=5, wrap=tk.WORD, font=self.font_normal)
         self.api_textbox.grid(row=1, column=0, padx=(10, 5), pady=(0, 10), sticky="nsew")
+        # Bind key release to sync internal list when keys are visible and user types
+        self.api_textbox.bind("<KeyRelease>", self._sync_actual_keys_from_textbox)
         
         api_load_save_buttons = ctk.CTkFrame(api_frame, fg_color="transparent")
         api_load_save_buttons.grid(row=1, column=1, padx=5, pady=(12, 10), sticky="ns")
@@ -362,14 +382,14 @@ Konfigurasi perilaku aplikasi:
         checkbox_frame.grid(row=0, column=1, padx=3, pady=0, sticky="wes")
         checkbox_frame.grid_columnconfigure(0, weight=1)
         
-        self.rename_checkbox = ctk.CTkCheckBox(checkbox_frame, text="Rename File?", variable=self.rename_files_var, font=self.font_normal)
-        self.rename_checkbox.grid(row=0, column=0, padx=10, pady=8, sticky="wes")
+        self.rename_switch = ctk.CTkSwitch(checkbox_frame, text="Rename File?", variable=self.rename_files_var, font=self.font_normal)
+        self.rename_switch.grid(row=0, column=0, padx=10, pady=8, sticky="w") # Adjusted sticky to 'w'
         
-        self.auto_kategori_checkbox = ctk.CTkCheckBox(checkbox_frame, text="Auto Kategori?", variable=self.auto_kategori_var, font=self.font_normal)
-        self.auto_kategori_checkbox.grid(row=1, column=0, padx=10, pady=8, sticky="wes")
+        self.auto_kategori_switch = ctk.CTkSwitch(checkbox_frame, text="Auto Kategori?", variable=self.auto_kategori_var, font=self.font_normal)
+        self.auto_kategori_switch.grid(row=1, column=0, padx=10, pady=8, sticky="w") # Adjusted sticky to 'w'
         
-        self.auto_foldering_checkbox = ctk.CTkCheckBox(checkbox_frame, text="Auto Foldering?", variable=self.auto_foldering_var, font=self.font_normal)
-        self.auto_foldering_checkbox.grid(row=2, column=0, padx=10, pady=8, sticky="wes")
+        self.auto_foldering_switch = ctk.CTkSwitch(checkbox_frame, text="Auto Foldering?", variable=self.auto_foldering_var, font=self.font_normal)
+        self.auto_foldering_switch.grid(row=2, column=0, padx=10, pady=8, sticky="w") # Adjusted sticky to 'w'
     
     def _create_status_frame(self, parent):
         """Membuat frame untuk status proses."""
@@ -557,8 +577,8 @@ Konfigurasi perilaku aplikasi:
         try:
             keys = read_api_keys(filepath)
             if keys:
-                self.api_keys_list = keys
-                self._update_api_textbox()
+                self._actual_api_keys = keys # Update internal list
+                self._update_api_textbox() # Update display (will show placeholders or keys based on toggle)
                 self._log(f"Berhasil memuat {len(keys)} API key", "success") # Add success tag
             else:
                 tk.messagebox.showwarning("File Kosong",
@@ -593,48 +613,158 @@ Konfigurasi perilaku aplikasi:
             tk.messagebox.showerror("Error", f"Gagal menyimpan API keys: {e}")
     
     def _delete_selected_api_key(self):
-        """Menghapus API key yang dipilih dari text box."""
+        """Menghapus API key berdasarkan seleksi atau posisi kursor."""
+        start_line_idx = -1
+        end_line_idx = -1
+        num_keys_to_delete = 0
+        delete_mode = "" # "selection" or "cursor"
+
         try:
-            selected_text = self.api_textbox._textbox.selection_get()
-            if not selected_text:
-                raise tk.TclError
-            
-            try:
-                start_index = self.api_textbox._textbox.index("sel.first")
-                end_index = self.api_textbox._textbox.index("sel.last")
-                start_line = start_index.split('.')[0]
-                end_line = end_index.split('.')[0]
-                
-                self.api_textbox.configure(state=tk.NORMAL)
-                
-                if start_line == end_line:
-                    line_start = f"{start_line}.0"
-                    line_end = f"{int(start_line) + 1}.0"
-                    self.api_textbox._textbox.delete(line_start, line_end)
-                else:
-                    self.api_textbox._textbox.delete(f"{start_line}.0", f"{int(end_line) + 1}.0")
-                
-                self._log("API key terpilih dihapus")
-            except Exception as e:
-                self._log(f"Error saat menghapus key: {e}", "error")
+            # Coba dapatkan seleksi
+            start_index_str = self.api_textbox._textbox.index("sel.first")
+            end_index_str = self.api_textbox._textbox.index("sel.last")
+            start_line_idx = int(start_index_str.split('.')[0]) - 1
+            end_line_idx = int(end_index_str.split('.')[0]) - 1
+            delete_mode = "selection"
+            num_keys_to_delete = end_line_idx - start_line_idx + 1
+
         except tk.TclError:
-            tk.messagebox.showinfo("Tidak Ada Seleksi", "Silakan pilih API key untuk dihapus.")
-    
+            # Tidak ada seleksi, coba gunakan posisi kursor
+            try:
+                cursor_index_str = self.api_textbox.index(tk.INSERT)
+                start_line_idx = int(cursor_index_str.split('.')[0]) - 1
+                end_line_idx = start_line_idx # Hanya satu baris
+                delete_mode = "cursor"
+                num_keys_to_delete = 1
+            except ValueError:
+                self._log("Error mendapatkan posisi kursor.", "error")
+                tk.messagebox.showerror("Error", "Tidak dapat menentukan baris target untuk dihapus.")
+                return
+            except Exception as e:
+                 self._log(f"Error tak terduga saat mendapatkan posisi kursor: {e}", "error")
+                 tk.messagebox.showerror("Error", f"Terjadi error tak terduga saat cek kursor: {e}")
+                 return
+
+        except ValueError:
+            self._log("Error mengonversi indeks baris seleksi saat menghapus key.", "error")
+            tk.messagebox.showerror("Error", "Terjadi kesalahan saat memproses indeks baris terpilih.")
+            return
+
+        # Validasi setelah mendapatkan indeks (baik dari seleksi maupun kursor)
+        if start_line_idx < 0 or start_line_idx >= len(self._actual_api_keys):
+             # Jika kursor di baris kosong setelah baris terakhir atau textbox kosong
+            if delete_mode == "cursor" and start_line_idx == len(self._actual_api_keys):
+                 tk.messagebox.showinfo("Tidak Ada Key", "Tidak ada API key di baris ini untuk dihapus.")
+                 return
+            self._log(f"Indeks baris awal ({start_line_idx}) tidak valid.", "warning")
+            tk.messagebox.showwarning("Indeks Tidak Valid", "Baris target tidak valid untuk dihapus.")
+            return
+
+        if delete_mode == "selection" and (end_line_idx < 0 or end_line_idx >= len(self._actual_api_keys) or start_line_idx > end_line_idx):
+            self._log(f"Indeks baris akhir seleksi ({end_line_idx}) tidak valid atau tidak konsisten.", "warning")
+            tk.messagebox.showwarning("Seleksi Tidak Valid", "Seleksi baris tidak valid untuk dihapus.")
+            return
+
+        # Konfirmasi sebelum menghapus
+        confirm_message = f"Anda yakin ingin menghapus {num_keys_to_delete} API key yang dipilih secara permanen?" \
+                          if delete_mode == "selection" else \
+                          f"Anda yakin ingin menghapus API key di baris {start_line_idx + 1} secara permanen?"
+
+        confirm_delete = tk.messagebox.askyesno("Konfirmasi Hapus", confirm_message)
+        if not confirm_delete:
+            self._log("Penghapusan API key dibatalkan oleh pengguna.", "info")
+            return
+
+        # Hapus key dari daftar internal _actual_api_keys
+        try:
+            del self._actual_api_keys[start_line_idx : end_line_idx + 1]
+            self._log(f"{num_keys_to_delete} API key dihapus dari daftar internal (baris {start_line_idx+1} - {end_line_idx+1}).", "info")
+            # Perbarui tampilan textbox untuk mencerminkan perubahan
+            self._update_api_textbox()
+        except IndexError:
+            self._log("Error: Indeks di luar jangkauan saat menghapus key dari daftar internal.", "error")
+            tk.messagebox.showerror("Error", "Terjadi kesalahan indeks saat mengakses daftar API key.")
+        except Exception as e:
+            self._log(f"Error saat proses penghapusan dari list: {e}", "error")
+            tk.messagebox.showerror("Error", f"Gagal menghapus API key dari daftar: {e}")
+
+
+    def _toggle_api_key_visibility(self):
+        """Toggle visibility of API keys in the textbox."""
+        # Update the display based on the new checkbox state
+        self._update_api_textbox() 
+        # Update the checkbox text
+        if self.show_api_keys_var.get():
+            self.show_api_keys_switch.configure(text="Sembunyikan Key") # Updated text
+        else:
+            self.show_api_keys_switch.configure(text="Tampilkan Key")
+
+
     def _update_api_textbox(self):
-        """Update text box API key dari list."""
+        """Update text box API key display based on visibility state."""
+        # Store current cursor position and selection
+        cursor_pos = self.api_textbox.index(tk.INSERT)
+        selection = None
+        try:
+            selection = self.api_textbox.tag_ranges("sel")
+        except tk.TclError:
+            pass # No selection
+
         try:
             self.api_textbox.configure(state=tk.NORMAL)
             self.api_textbox.delete("1.0", tk.END)
-            
-            if self.api_keys_list:
-                self.api_textbox.insert("1.0", "\n".join(self.api_keys_list))
-                
-            self.api_textbox.configure(state=tk.NORMAL)
+
+            if self.show_api_keys_var.get():
+                # Show actual keys
+                if self._actual_api_keys:
+                    self.api_textbox.insert("1.0", "\n".join(self._actual_api_keys))
+            else:
+                # Show placeholders (ensure placeholder length is reasonable)
+                if self._actual_api_keys:
+                    placeholders = ["•" * 39] * len(self._actual_api_keys) # 39 bullet characters placeholder
+                    self.api_textbox.insert("1.0", "\n".join(placeholders))
+
+            self.api_textbox.configure(state=tk.NORMAL) 
+
+            # Restore cursor position and selection
+            self.api_textbox.mark_set(tk.INSERT, cursor_pos)
+            if selection:
+                 self.api_textbox.tag_add("sel", selection[0], selection[1])
+            self.api_textbox.see(tk.INSERT) # Ensure cursor is visible
+
         except tk.TclError:
-            pass
-    
+            pass # Ignore Tcl errors which might happen during rapid updates
+        except Exception as e:
+             self._log(f"Error updating API textbox display: {e}", "error")
+
     def _get_keys_from_textbox(self):
-        """Mendapatkan API key dari text box."""
+        """Gets the actual API keys from the internal list."""
+        # Always return the actual keys, regardless of display state
+        # Sync first in case user typed while keys were visible
+        self._sync_actual_keys_from_textbox() 
+        return self._actual_api_keys
+
+    def _sync_actual_keys_from_textbox(self, event=None):
+        """Update the internal list when user types in the visible textbox."""
+        # This should only run if keys are currently visible to avoid overwriting
+        # the actual keys with '****' if the user types while hidden.
+        if self.show_api_keys_var.get(): 
+            try:
+                # Get text directly from the widget
+                keys_text = self.api_textbox.get("1.0", "end-1c") 
+                # Update the internal list
+                self._actual_api_keys = [line.strip() for line in keys_text.splitlines() if line.strip()]
+            except tk.TclError:
+                 self._actual_api_keys = [] # Handle potential Tcl errors
+            except Exception as e:
+                 # Log error but try to preserve existing keys if possible
+                 self._log(f"Error syncing keys from textbox: {e}", "error")
+                 # Avoid clearing keys on error, maybe log previous state?
+                 # self._actual_api_keys = [] 
+
+    # --- Settings Methods ---
+    def _get_config_path(self):
+        """Mendapatkan path file konfigurasi."""
         try:
             keys_text = self.api_textbox.get("1.0", "end-1c")
             return [line.strip() for line in keys_text.splitlines() if line.strip()]
@@ -682,7 +812,10 @@ Konfigurasi perilaku aplikasi:
                         self.rename_files_var.set(settings.get("rename", False))
                         self.auto_kategori_var.set(settings.get("auto_kategori", True))
                         self.auto_foldering_var.set(settings.get("auto_foldering", False))
-                        self.api_keys_list = settings.get("api_keys", [])
+                        # Load keys into the internal list first
+                        self._actual_api_keys = settings.get("api_keys", [])
+                        # Load API key visibility state (default to False/hidden if not found)
+                        self.show_api_keys_var.set(settings.get("show_api_keys", False))
                         
                         # Load tema
                         loaded_theme = settings.get("theme", "dark")
@@ -695,9 +828,10 @@ Konfigurasi perilaku aplikasi:
                             self.installation_id.set(loaded_install_id)
                             self._log(f"ID Instalasi ditemukan: {loaded_install_id[:8]}...", "info")
                         else:
-                             self._log("ID Instalasi belum ada di config.", "info")
+                              self._log("ID Instalasi belum ada di config.", "info")
                         
-                        self._update_api_textbox()
+                        # Update the textbox display after loading internal keys
+                        self._update_api_textbox() 
                         self._log("Pengaturan lain berhasil dimuat dari konfigurasi", "info")
                 except Exception as inner_e:
                     self._log(f"Error saat membaca file config: {inner_e}", "error")
@@ -716,7 +850,8 @@ Konfigurasi perilaku aplikasi:
     
     def _save_settings(self):
         """Menyimpan pengaturan ke file konfigurasi."""
-        current_api_keys = self._get_keys_from_textbox()
+        # Ensure we save the actual keys from the internal list
+        self._sync_actual_keys_from_textbox() # Sync just in case keys were visible and edited
         
         settings = {
             "config_version": "1.0",
@@ -727,7 +862,8 @@ Konfigurasi perilaku aplikasi:
             "rename": self.rename_files_var.get(),
             "auto_kategori": self.auto_kategori_var.get(),
             "auto_foldering": self.auto_foldering_var.get(),
-            "api_keys": current_api_keys,
+            "api_keys": self._actual_api_keys, # Save the internal list
+            "show_api_keys": self.show_api_keys_var.get(), # Save API key visibility state
             "theme": self.theme_var.get(),
             "last_saved": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "analytics_enabled": self.analytics_enabled_var.get(),
@@ -967,9 +1103,9 @@ Konfigurasi perilaku aplikasi:
         """Menonaktifkan UI selama pemrosesan berjalan."""
         self.start_button.configure(state=tk.DISABLED)
         self.clear_button.configure(state=tk.DISABLED)
-        self.rename_checkbox.configure(state=tk.DISABLED)
-        self.auto_kategori_checkbox.configure(state=tk.DISABLED)
-        self.auto_foldering_checkbox.configure(state=tk.DISABLED)
+        self.rename_switch.configure(state=tk.DISABLED)
+        self.auto_kategori_switch.configure(state=tk.DISABLED)
+        self.auto_foldering_switch.configure(state=tk.DISABLED)
         self.api_textbox.configure(state=tk.DISABLED)
         self.theme_dropdown.configure(state=tk.DISABLED)
         self.workers_entry.configure(state=tk.DISABLED)
@@ -1153,9 +1289,9 @@ Konfigurasi perilaku aplikasi:
             # Re-enable UI
             self.start_button.configure(state=tk.NORMAL)
             self.clear_button.configure(state=tk.NORMAL)
-            self.rename_checkbox.configure(state=tk.NORMAL)
-            self.auto_kategori_checkbox.configure(state=tk.NORMAL)
-            self.auto_foldering_checkbox.configure(state=tk.NORMAL)
+            self.rename_switch.configure(state=tk.NORMAL)
+            self.auto_kategori_switch.configure(state=tk.NORMAL)
+            self.auto_foldering_switch.configure(state=tk.NORMAL)
             self.workers_entry.configure(state=tk.NORMAL)
             self.theme_dropdown.configure(state=tk.NORMAL)
             self.delay_entry.configure(state=tk.NORMAL)

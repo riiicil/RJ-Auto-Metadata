@@ -42,30 +42,30 @@ def process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enab
     # Dapatkan folder kompresi sementara
     chosen_temp_folder = get_temp_compression_folder(output_dir)
     if not chosen_temp_folder:
-        # log_message("  Error: Tidak dapat menemukan folder temporari yang bisa ditulis.")
+        log_message("  Error: Tidak dapat menemukan folder temporari yang bisa ditulis.")
         return "failed_unknown", None, None
     
     # Kompresi gambar jika perlu
     try:
         file_size_mb = os.path.getsize(input_path) / (1024 * 1024)
         if file_size_mb > 2:  # 2MB adalah batas ukuran file
-            # log_message(f"  File PNG {filename} ({file_size_mb:.2f}MB) perlu kompresi.")
+            log_message(f"  File PNG {filename} ({file_size_mb:.2f}MB) perlu kompresi.")
             compressed_path, is_compressed = compress_image(
                 input_path, chosen_temp_folder, stop_event=stop_event
             )
             
             if is_compressed and compressed_path and os.path.exists(compressed_path):
-                # log_message(f"  Kompresi berhasil: {os.path.basename(compressed_path)}")
+                log_message(f"  Kompresi berhasil: {os.path.basename(compressed_path)}")
                 path_for_api = compressed_path
                 temp_files_created.append(compressed_path)
             else:
-                # log_message(f"  Kompresi gagal. Menggunakan file asli: {filename}")
+                log_message(f"  Kompresi gagal. Menggunakan file asli: {filename}")
                 path_for_api = input_path
         else:
-            # log_message(f"  File {filename} ({file_size_mb:.2f}MB) tidak perlu kompresi.")
+            log_message(f"  File {filename} ({file_size_mb:.2f}MB) tidak perlu kompresi.")
             path_for_api = input_path
     except Exception as e:
-        # log_message(f"  Error saat memeriksa ukuran/kompresi: {e}")
+        log_message(f"  Error saat memeriksa ukuran/kompresi: {e}")
         path_for_api = input_path
     
     if check_stop_event(stop_event):
@@ -86,19 +86,19 @@ def process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enab
         try:
             if os.path.exists(temp_file):
                 os.remove(temp_file)
-                # # log_message(f"  File kompresi sementara dihapus: {os.path.basename(temp_file)}")
-        except Exception as e: pass
-            # log_message(f"  Warning: Gagal hapus file sementara: {e}")
+                log_message(f"  File kompresi sementara dihapus: {os.path.basename(temp_file)}")
+        except Exception as e:
+            log_message(f"  Warning: Gagal hapus file sementara: {e}")
     
     if metadata_result == "stopped":
         return "stopped", None, None
     elif isinstance(metadata_result, dict) and "error" in metadata_result:
-        # log_message(f"  API Error detail: {metadata_result['error']}")
+        log_message(f"  API Error detail: {metadata_result['error']}")
         return "failed_api", None, None
     elif isinstance(metadata_result, dict):
         metadata = metadata_result
     else:
-        # log_message(f"  API call gagal mendapatkan metadata (hasil tidak valid).")
+        log_message(f"  API call gagal mendapatkan metadata (hasil tidak valid).")
         return "failed_api", None, None
     
     if check_stop_event(stop_event):
@@ -109,10 +109,10 @@ def process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enab
         if not os.path.exists(initial_output_path):
             shutil.copy2(input_path, initial_output_path)
         else:
-            # log_message(f"  Menimpa file output yang sudah ada: {filename}")
+            log_message(f"  Menimpa file output yang sudah ada: {filename}")
             shutil.copy2(input_path, initial_output_path)
     except Exception as e:
-        # log_message(f"  Gagal menyalin {filename}: {e}")
+        log_message(f"  Gagal menyalin {filename}: {e}")
         return "failed_copy", metadata, None
     
     if check_stop_event(stop_event):
@@ -131,7 +131,7 @@ def process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enab
             metadata.get('tags', []),
             auto_kategori_enabled
         )
-    except Exception as e: pass
-        # log_message(f"  Warning: Gagal menulis metadata ke CSV: {e}")
+    except Exception as e:
+        log_message(f"  Warning: Gagal menulis metadata ke CSV: {e}")
     
     return "processed_no_exif", metadata, initial_output_path
