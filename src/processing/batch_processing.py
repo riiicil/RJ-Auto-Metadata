@@ -1,0 +1,652 @@
+# src/processing/batch_processing.py
+import os
+import shutil
+import time
+import random
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
+
+from src.utils.logging import log_message
+from src.utils.file_utils import ensure_unique_title, sanitize_filename
+from src.utils.file_utils import SUPPORTED_IMAGE_EXTENSIONS, SUPPORTED_VIDEO_EXTENSIONS, ALL_SUPPORTED_EXTENSIONS
+from src.utils.compression import cleanup_temp_compression_folder, manage_temp_folders
+from src.processing.image_processing.format_jpg_jpeg_processing import process_jpg_jpeg
+from src.processing.image_processing.format_png_processing import process_png
+from src.processing.vector_processing.format_eps_ai_processing import convert_eps_to_jpg
+from src.processing.vector_processing.format_svg_processing import convert_svg_to_jpg
+from src.processing.video_processing import process_video
+from src.api.gemini_api import check_stop_event, is_stop_requested
+
+def process_vector_file(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True):
+    """
+    Memproses file vektor (EPS, AI, SVG).
+    
+    Args:
+        input_path: Path file sumber
+        output_dir: Direktori output
+        api_keys: List API key Gemini
+        stop_event: Event threading untuk menghentikan proses
+        auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
+        
+    Returns:
+        Tuple (status, metadata, output_path):
+            - status: String status pemrosesan
+            - metadata: Dictionary metadata hasil API, atau None jika gagal
+            - output_path: Path file output, atau None jika gagal
+    """
+    filename = os.path.basename(input_path)
+    _, ext = os.path.splitext(filename)
+    ext_lower = ext.lower()
+    is_eps_original = (ext_lower == '.eps')
+    is_ai_original = (ext_lower == '.ai')
+    is_svg_original = (ext_lower == '.svg')
+    
+    # Tentukan path output awal
+    initial_output_path = os.path.join(output_dir, filename)
+    temp_raster_path = None
+    conversion_needed = is_eps_original or is_ai_original or is_svg_original
+    
+    if check_stop_event(stop_event): 
+        return "stopped", None, None
+    
+    # Periksa apakah file output sudah ada
+    if os.path.exists(initial_output_path):
+        return "skipped_exists", None, initial_output_path
+    
+    # Dapatkan folder kompresi sementara
+    chosen_temp_folder = os.path.join(output_dir, "temp_compressed")
+    os.makedirs(chosen_temp_folder, exist_ok=True)
+    
+    # Konversi file vektor ke JPG
+    if conversion_needed:
+        base, _ = os.path.splitext(filename)
+        if is_eps_original or is_ai_original:
+            temp_raster_path = os.path.join(chosen_temp_folder, f"{base}_converted.jpg")
+            conversion_func = convert_eps_to_jpg
+            target_format = "JPG"
+        elif is_svg_original:
+            temp_raster_path = os.path.join(chosen_temp_folder, f"{base}_converted.jpg")
+            conversion_func = convert_svg_to_jpg
+            target_format = "JPG"
+        else:
+            return "failed_unknown", None, None
+        
+        if check_stop_event(stop_event):
+            return "stopped", None, None
+        
+        log_message(f"  Memulai konversi {ext_lower.upper()} ke {target_format}...")
+        conversion_success, error_msg = conversion_func(input_path, temp_raster_path, stop_event)
+        
+        if not conversion_success:
+            log_message(f"  Gagal konversi {ext_lower.upper()}: {error_msg}")
+            if temp_raster_path and os.path.exists(temp_raster_path):
+                try: os.remove(temp_raster_path)
+                except Exception: pass
+            return "failed_conversion", None, None
+        
+        log_message(f"  Konversi {ext_lower.upper()} ke {target_format} selesai.")
+        
+        # Jangan lakukan apa-apa dengan raster hasil konversi di sini
+        # Kita hanya gunakan untuk dapatkan metadata dari API
+    
+    # Memproses seperti file raster dan mendapatkan metadata
+    api_key = random.choice(api_keys) if isinstance(api_keys, list) else api_keys
+    
+    # Gunakan file hasil konversi untuk mendapatkan metadata
+    from src.api.gemini_api import get_gemini_metadata
+    metadata_result = get_gemini_metadata(
+        temp_raster_path if temp_raster_path else input_path, 
+        api_key, 
+        stop_event, 
+        use_png_prompt=True  # Gunakan prompt PNG untuk semua file vektor
+    )
+    
+    # Bersihkan file sementara
+    if temp_raster_path and os.path.exists(temp_raster_path):
+        try:
+            os.remove(temp_raster_path)
+            log_message(f"  File konversi sementara dihapus: {os.path.basename(temp_raster_path)}")
+        except Exception as e:
+            log_message(f"  Warning: Gagal hapus file konversi: {e}")
+    
+    if metadata_result == "stopped":
+        return "stopped", None, None
+    elif isinstance(metadata_result, dict) and "error" in metadata_result:
+        log_message(f"  API Error detail: {metadata_result['error']}")
+        return "failed_api", None, None
+    elif isinstance(metadata_result, dict):
+        metadata = metadata_result
+    else:
+        log_message(f"  API call gagal mendapatkan metadata (hasil tidak valid).")
+        return "failed_api", None, None
+    
+    if check_stop_event(stop_event):
+        return "stopped", metadata, None
+    
+    # Salin file ke output (vektor tidak bisa menyimpan EXIF metadata)
+    try:
+        if not os.path.exists(initial_output_path):
+            shutil.copy2(input_path, initial_output_path)
+        else:
+            log_message(f"  Menimpa file output yang sudah ada: {filename}")
+            shutil.copy2(input_path, initial_output_path)
+        
+        # Tulis metadata ke CSV
+        try:
+            from src.metadata.csv_exporter import write_to_platform_csvs
+            csv_subfolder = os.path.join(output_dir, "metadata_csv")
+            write_to_platform_csvs(
+                csv_subfolder,
+                os.path.basename(initial_output_path),
+                metadata.get('title', ''),
+                metadata.get('description', ''),
+                metadata.get('tags', []),
+                auto_kategori_enabled
+            )
+        except Exception as e:
+            log_message(f"  Warning: Gagal menulis metadata ke CSV: {e}")
+        
+        return "processed_no_exif", metadata, initial_output_path
+    except Exception as e:
+        log_message(f"  Gagal menyalin {filename}: {e}")
+        return "failed_copy", metadata, None
+
+def process_image(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True):
+    """
+    Memproses file gambar.
+    
+    Args:
+        input_path: Path file sumber
+        output_dir: Direktori output
+        api_keys: List API key Gemini
+        stop_event: Event threading untuk menghentikan proses
+        auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
+        
+    Returns:
+        Tuple (status, metadata, output_path):
+            - status: String status pemrosesan
+            - metadata: Dictionary metadata hasil API, atau None jika gagal
+            - output_path: Path file output, atau None jika gagal
+    """
+    filename = os.path.basename(input_path)
+    _, ext = os.path.splitext(filename)
+    ext_lower = ext.lower()
+    
+    # Periksa apakah file terlalu kecil
+    try:
+        file_size = os.path.getsize(input_path)
+        if file_size < 100:
+            log_message(f"  File terlalu kecil atau kosong: {filename} ({file_size} bytes)")
+            return "failed_empty", None, None
+    except Exception as e:
+        log_message(f"  Error memeriksa file: {e}")
+        return "failed_unknown", None, None
+    
+    # Proses berdasarkan tipe file
+    if ext_lower == '.png':
+        return process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled)
+    elif ext_lower in ['.eps', '.ai', '.svg']:
+        return process_vector_file(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled)
+    elif ext_lower in ['.jpg', '.jpeg']:
+        return process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled)
+    else:
+        log_message(f"  Format file tidak didukung: {ext_lower}")
+        return "failed_format", None, None
+
+def process_single_file(input_path, output_dir, api_keys_list, rename_enabled, auto_kategori_enabled, auto_foldering_enabled):
+    """
+    Memproses satu file, menentukan tipe dan memanggil fungsi pemrosesan yang sesuai.
+    
+    Args:
+        input_path: Path file sumber
+        output_dir: Direktori output utama
+        api_keys_list: List API key Gemini
+        rename_enabled: Flag untuk mengaktifkan rename otomatis
+        auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
+        auto_foldering_enabled: Flag untuk menempatkan file dalam subfolder berdasarkan tipe
+        
+    Returns:
+        Dictionary dengan informasi hasil pemrosesan
+    """
+    import threading
+    stop_event = threading.Event()
+    original_filename = os.path.basename(input_path)
+    final_output_path = None
+    processed_metadata = None
+    status = "failed"
+    new_filename = None
+    
+    if is_stop_requested() or stop_event.is_set():
+        return {"status": "stopped", "input": input_path}
+    
+    original_file_size = None
+    original_file_mtime = None
+    
+    try:
+        if stop_event.is_set() or is_stop_requested():
+            return {"status": "stopped", "input": input_path}
+        
+        _, ext = os.path.splitext(input_path)
+        ext_lower = ext.lower()
+        is_video = ext_lower in SUPPORTED_VIDEO_EXTENSIONS
+        is_vector = ext_lower in ('.eps', '.ai', '.svg')
+        is_image = not is_video and not is_vector
+        
+        # Tentukan target output berdasarkan auto_foldering
+        target_output_dir = output_dir
+        if auto_foldering_enabled:
+            if is_video:
+                target_output_dir = os.path.join(output_dir, "Videos")
+            elif is_vector:
+                target_output_dir = os.path.join(output_dir, "Vectors")
+            else:
+                target_output_dir = os.path.join(output_dir, "Images")
+            
+            if not os.path.exists(target_output_dir):
+                try:
+                    os.makedirs(target_output_dir, exist_ok=True)
+                except Exception as e:
+                    log_message(f"Error membuat subfolder '{os.path.basename(target_output_dir)}': {e}", "error")
+                    target_output_dir = output_dir
+        
+        try:
+            if os.path.exists(input_path):
+                original_file_size = os.path.getsize(input_path)
+                original_file_mtime = os.path.getmtime(input_path)
+            else:
+                log_message(f"⨯ File input {original_filename} hilang sebelum diproses.", "error")
+                return {"status": "failed_input_missing", "input": input_path}
+        except Exception as e_info:
+            log_message(f"Warning: Gagal mendapatkan info awal {original_filename}: {e_info}", "warning")
+        
+        if not api_keys_list:
+            log_message(f"⨯ Tidak ada API Key tersedia untuk {original_filename}", "error")
+            return {"status": "failed_api", "input": input_path}
+        
+        if stop_event.is_set() or is_stop_requested():
+            return {"status": "stopped", "input": input_path}
+        
+        # Proses file berdasarkan jenisnya
+        if is_video:
+            status, processed_metadata, initial_output_path = process_video(
+                input_path, target_output_dir, api_keys_list, stop_event, auto_kategori_enabled
+            )
+        else:
+            status, processed_metadata, initial_output_path = process_image(
+                input_path, target_output_dir, api_keys_list, stop_event, auto_kategori_enabled
+            )
+        
+        if stop_event.is_set() or is_stop_requested():
+            return {"status": "stopped", "input": input_path}
+        
+        if status in ["processed_exif", "processed_no_exif"]:
+            final_output_path = initial_output_path
+            
+            # Rename file jika diperlukan
+            if rename_enabled and processed_metadata and processed_metadata.get("title"):
+                current_output_path = final_output_path
+                rename_success = True
+                _, file_ext = os.path.splitext(original_filename)
+                title_for_rename = processed_metadata.get("title", "").strip()
+                
+                if title_for_rename:
+                    sanitized_title = sanitize_filename(title_for_rename)
+                    if not sanitized_title:
+                        sanitized_title = f"untitled_{os.path.splitext(original_filename)[0]}"
+                    
+                    new_base_filename = f"{sanitized_title}{file_ext}"
+                    new_path = os.path.join(target_output_dir, new_base_filename)
+                    
+                    if new_path.lower() != initial_output_path.lower():
+                        counter = 0
+                        max_rename_attempts = 50
+                        
+                        while os.path.exists(new_path) and counter < max_rename_attempts:
+                            counter += 1
+                            new_base_filename = f"{sanitized_title} ({counter}){file_ext}"
+                            new_path = os.path.join(target_output_dir, new_base_filename)
+                        
+                        if counter >= max_rename_attempts:
+                            log_message(f"  Error: Gagal menemukan nama unik untuk rename.")
+                            rename_success = False
+                        else:
+                            try:
+                                shutil.move(initial_output_path, new_path)
+                                log_message(f"  -> Berhasil di-rename menjadi: {new_base_filename}")
+                                final_output_path = new_path
+                                new_filename = new_base_filename
+                            except Exception as e_rename:
+                                log_message(f"  ERROR: Gagal rename: {e_rename}")
+                                rename_success = False
+                                final_output_path = current_output_path
+            
+            # Hapus file input jika berhasil diproses
+            if status != "failed_copy" and status != "skipped_exists" and os.path.exists(input_path):
+                try:
+                    os.remove(input_path)
+                except OSError as e_remove:
+                    log_message(f"  WARNING: Gagal menghapus file asli '{original_filename}': {e_remove}")
+        
+    except Exception as e:
+        log_message(f"Error processing {original_filename}: {e}", "error")
+        import traceback
+        log_message(f"Detail error: {traceback.format_exc()}", "error")
+        status = "failed_worker"
+    
+    if stop_event.is_set() or is_stop_requested():
+        return {"status": "stopped", "input": input_path}
+    
+    return {
+        "status": status,
+        "input": input_path,
+        "output": final_output_path,
+        "metadata": processed_metadata,
+        "original_filename": original_filename,
+        "new_filename": new_filename
+    }
+
+def batch_process_files(input_dir, output_dir, api_keys, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled, progress_callback=None, stop_event=None):
+    """
+    Memproses batch file dari direktori input.
+    
+    Args:
+        input_dir: Direktori sumber file
+        output_dir: Direktori output untuk file yang diproses
+        api_keys: List API key Gemini
+        rename_enabled: Flag untuk mengaktifkan rename otomatis
+        delay_seconds: Delay dalam detik antara batch
+        num_workers: Jumlah worker paralel
+        auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
+        auto_foldering_enabled: Flag untuk menempatkan file dalam subfolder berdasarkan tipe
+        progress_callback: Callback untuk melaporkan progres
+        stop_event: Event threading untuk menghentikan proses
+        
+    Returns:
+        Dictionary dengan statistik hasil pemrosesan
+    """
+    log_message(f"Memulai proses ({num_workers} worker, delay {delay_seconds}s, rotasi API aktif)", "warning")
+    
+    # Reset flag global
+    from src.api.gemini_api import reset_force_stop
+    reset_force_stop()
+    
+    try:
+        # Siapkan folder sementara untuk kompresi
+        temp_folders = manage_temp_folders(input_dir, output_dir)
+        
+        # Cari file yang bisa diproses
+        processable_extensions = ALL_SUPPORTED_EXTENSIONS
+        
+        try:
+            dir_list = os.listdir(input_dir)
+        except Exception as e:
+            log_message(f"Error membaca direktori input: {e}", "error")
+            return {
+                "processed_count": 0,
+                "failed_count": 0,
+                "skipped_count": 0,
+                "stopped_count": 0
+            }
+        
+        files_to_process = []
+        for filename in dir_list:
+            if filename.lower().endswith(processable_extensions) and not filename.startswith('.'):
+                full_path = os.path.join(input_dir, filename)
+                if os.path.isfile(full_path):
+                    files_to_process.append(full_path)
+        
+        files_to_process = [f for f in files_to_process if os.path.exists(f)]
+        total_files = len(files_to_process)
+        
+        if total_files == 0:
+            log_message("Tidak ada file baru/valid yang dapat diproses di folder input.", "warning")
+            return {
+                "processed_count": 0,
+                "failed_count": 0,
+                "skipped_count": 0,
+                "stopped_count": 0
+            }
+        
+        log_message(f"Ditemukan {total_files} file untuk diproses", "success")
+        
+        if progress_callback:
+            progress_callback(0, total_files)
+        
+        if stop_event and stop_event.is_set() or is_stop_requested():
+            log_message("Proses dihentikan sebelum mulai (deteksi awal)", "warning")
+            return {
+                "processed_count": 0,
+                "failed_count": 0,
+                "skipped_count": 0,
+                "stopped_count": 0
+            }
+        
+        processed_count = 0
+        failed_count = 0
+        skipped_count = 0
+        stopped_count = 0
+        completed_count = 0
+        
+        # Siapkan folder CSV di output utama jika auto_foldering dinonaktifkan
+        if not auto_foldering_enabled:
+            csv_subfolder_main = os.path.join(output_dir, "metadata_csv")
+            try:
+                if not os.path.exists(csv_subfolder_main):
+                    os.makedirs(csv_subfolder_main)
+                log_message(f"Output CSV akan disimpan di subfolder: {os.path.basename(csv_subfolder_main)}", "info")
+            except Exception as e:
+                log_message(f"Warning: Tidak dapat membuat direktori CSV utama: {e}", "warning")
+        
+        # Batasi jumlah worker ke jumlah API key jika lebih sedikit
+        if len(api_keys) < num_workers:
+            old_workers = num_workers
+            num_workers = len(api_keys)
+            log_message(f"Jumlah worker dibatasi menjadi {num_workers} karena hanya ada {len(api_keys)} API key.", "warning")
+        
+        futures = []
+        processed_files = set()
+        
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            log_message(f"Mengirim {total_files} pekerjaan ke {num_workers} worker...", "warning")
+            
+            batch_index = 0
+            while batch_index < len(files_to_process) and not (stop_event and stop_event.is_set() or is_stop_requested()):
+                # Delay progresif antar batch untuk mengurangi rate limit
+                base_batch_delay = delay_seconds / 3.0
+                progressive_delay = base_batch_delay * (batch_index / num_workers) if batch_index > 0 else 0
+                progressive_delay = min(progressive_delay, 3.0)
+                
+                if progressive_delay > 0 and not (stop_event and stop_event.is_set()):
+                    time.sleep(progressive_delay)
+                
+                # Ambil batch file berikutnya
+                current_batch_paths = files_to_process[batch_index:batch_index + num_workers]
+                current_batch = [f for f in current_batch_paths
+                                 if os.path.exists(f) and f not in processed_files]
+                
+                if not current_batch:
+                    batch_index += num_workers
+                    continue
+                
+                batch_futures = []
+                for idx, input_path in enumerate(current_batch):
+                    if stop_event and stop_event.is_set() or is_stop_requested():
+                        break
+                    
+                    if idx > 0 and not (stop_event and stop_event.is_set() or is_stop_requested()):
+                        small_delay = random.uniform(0, 2.0)
+                        if small_delay > 0:
+                            time.sleep(small_delay)
+                    
+                    if not os.path.exists(input_path) or input_path in processed_files:
+                        continue
+                    
+                    original_filename = os.path.basename(input_path)
+                    log_message(f" → Memproses {original_filename}...", "info") 
+                    
+                    try:
+                        future = executor.submit(
+                            process_single_file,
+                            input_path,
+                            output_dir,
+                            api_keys,
+                            rename_enabled,
+                            auto_kategori_enabled,
+                            auto_foldering_enabled
+                        )
+                        batch_futures.append(future)
+                        futures.append(future)
+                        processed_files.add(input_path)
+                    except Exception as e:
+                        log_message(f"Error submit job untuk {original_filename}: {e}", "error")
+                        failed_count += 1
+                        completed_count += 1
+                
+                if batch_futures:
+                    log_message(f"Batch {batch_index//num_workers + 1}: Menunggu hasil {len(batch_futures)} file...", "warning")
+                    
+                    for future in concurrent.futures.as_completed(batch_futures):
+                        if stop_event and stop_event.is_set() or is_stop_requested():
+                            break
+                        
+                        completed_count += 1 
+                        
+                        try:
+                            result = future.result(timeout=120)
+                            
+                            if not result:
+                                log_message(f"⨯ Hasil tidak valid diterima", "error")
+                                failed_count += 1
+                                continue
+                            
+                            status = result.get("status", "failed")
+                            input_path_result = result.get("input", "")
+                            filename = os.path.basename(input_path_result) if input_path_result else "unknown file"
+                            
+                            if status == "processed_exif" or status == "processed_no_exif":
+                                processed_count += 1
+                                new_name = result.get("new_filename")
+                                log_msg = f"✓ {filename}" + (f" → {new_name}" if new_name else "")
+                                log_message(log_msg) 
+                            elif status == "skipped_exists":
+                                skipped_count += 1
+                                log_message(f"⋯ {filename} (sudah ada)", "info")
+                            elif status == "stopped":
+                                stopped_count += 1
+                                log_message(f"⊘ {filename} (dihentikan internal)", "warning")
+                            else: 
+                                failed_count += 1
+                                if status == "failed_api":
+                                     log_message(f"✗ {filename} (API Error/Limit)", "error")
+                                elif status == "failed_copy":
+                                     log_message(f"✗ {filename} (gagal copy)", "error")
+                                elif status == "failed_format":
+                                     log_message(f"✗ {filename} (format/file error)", "error")
+                                elif status == "failed_empty":
+                                    log_message(f"✗ {filename} (file kosong)", "error")
+                                elif status == "failed_input_missing":
+                                     log_message(f"✗ {filename} (input hilang)", "error")
+                                else: 
+                                     log_message(f"✗ {filename} ({status})", "error")
+                            
+                        except concurrent.futures.TimeoutError:
+                            log_message(f"⨯ Timeout menunggu hasil pekerjaan", "error")
+                            failed_count += 1
+                        except concurrent.futures.CancelledError:
+                            log_message(f"Pekerjaan dibatalkan.", "warning")
+                            stopped_count += 1
+                        except Exception as e:
+                            failed_input_path = "unknown file"
+                            log_message(f"Error saat memproses hasil: {e}", "error")
+                            failed_count += 1
+                        
+                        # Update progres
+                        if progress_callback:
+                            progress_callback(completed_count, total_files)
+                
+                if stop_event and stop_event.is_set() or is_stop_requested():
+                    log_message("Stop terdeteksi setelah memproses hasil batch.", "warning")
+                    break
+                
+                batch_index += num_workers
+                is_last_batch = (batch_index >= len(files_to_process))
+                
+                # Cooldown antara batch
+                if not is_last_batch and not (stop_event and stop_event.is_set() or is_stop_requested()) and delay_seconds > 0:
+                    cooldown_msg = f"Cool-down {delay_seconds} detik dulu ngabbbb..."
+                    log_message(cooldown_msg, "cooldown")
+                    
+                    # Delay dengan pengecekan stop periodik
+                    for _ in range(int(delay_seconds * 10)): 
+                        if stop_event and stop_event.is_set() or is_stop_requested():
+                            log_message("Proses dihentikan oleh pengguna (deteksi cooldown)", "warning")
+                            break
+                        time.sleep(0.1)
+                    
+                    if stop_event and stop_event.is_set() or is_stop_requested():
+                        break
+            
+            # Batalkan pekerjaan yang tersisa jika dihentikan
+            if stop_event and stop_event.is_set() or is_stop_requested():
+                log_message("Membatalkan pekerjaan yang tersisa...", "warning")
+                remaining_submitted = len(futures) - completed_count
+                stopped_count += remaining_submitted
+                completed_count += remaining_submitted 
+                
+                for f in futures:
+                    if not f.done():
+                        f.cancel()
+        
+        # Bersihkan folder sementara
+        try:
+            for folder_type, folder_path in temp_folders.items():
+                if os.path.exists(folder_path):
+                    cleanup_temp_compression_folder(folder_path)
+            
+            if auto_foldering_enabled:
+                possible_subfolders = [
+                    os.path.join(output_dir, "Images"),
+                    os.path.join(output_dir, "Videos"),
+                    os.path.join(output_dir, "Vectors")
+                ]
+                
+                for subfolder in possible_subfolders:
+                    if os.path.exists(subfolder) and os.path.isdir(subfolder):
+                        temp_subfolder = os.path.join(subfolder, "temp_compressed")
+                        if os.path.exists(temp_subfolder):
+                            log_message(f"Membersihkan folder kompresi di {os.path.basename(subfolder)}", "info")
+                            cleanup_temp_compression_folder(temp_subfolder)
+        except Exception as e:
+            log_message(f"Error saat membersihkan folder temp akhir: {e}", "warning")
+        
+        # Statistik akhir
+        log_message("", None)
+        log_message("============= Ringkasan Proses =============", "bold")
+        log_message(f"Total file: {total_files}", None)
+        log_message(f"Berhasil diproses: {processed_count}", "success")
+        log_message(f"Gagal: {failed_count}", "error")
+        log_message(f"Dilewati: {skipped_count}", "info")
+        log_message(f"Dihentikan: {stopped_count}", "warning")
+        log_message("=========================================", None)
+        
+        return {
+            "processed_count": processed_count,
+            "failed_count": failed_count,
+            "skipped_count": skipped_count,
+            "stopped_count": stopped_count,
+            "total_files": total_files
+        }
+    
+    except Exception as e:
+        log_message(f"Error fatal dalam processing thread: {e}", "error")
+        import traceback
+        tb_str = traceback.format_exc()
+        log_message(f"Traceback:\n{tb_str}", "error")
+        
+        return {
+            "processed_count": 0,
+            "failed_count": 0,
+            "skipped_count": 0,
+            "stopped_count": 0,
+            "error": str(e)
+        }
