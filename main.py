@@ -1,7 +1,6 @@
 # main.py
 import os
 import sys
-print("Python path sebelum:", sys.path)
 import tkinter as tk
 import traceback
 

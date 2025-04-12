@@ -7,6 +7,7 @@ import queue
 import random
 import json
 import platform
+import re  # Import regex module
 import uuid
 import webbrowser
 import tkinter as tk
@@ -36,7 +37,8 @@ class MetadataApp(ctk.CTk):
         
         # Inisialisasi font
         self.default_font_family = "Aptos_display"
-        
+        from src.utils.logging import set_log_handler
+        set_log_handler(self._log)
         # Cek apakah font ada
         def font_exists(font_name):
             try:
@@ -118,6 +120,7 @@ class MetadataApp(ctk.CTk):
         self.log_queue = queue.Queue()
         self._log_queue_after_id = None
         self._stop_request_time = None
+        self._in_summary_block = False # Flag for summary block
         
         # Load konfigurasi
         self.config_path = self._get_config_path()
@@ -127,14 +130,20 @@ class MetadataApp(ctk.CTk):
         # Auto kategori dan foldering
         self.auto_kategori_var = tk.BooleanVar(value=False)
         self.auto_foldering_var = tk.BooleanVar(value=False)
+        self._needs_initial_save = False # Flag to track if initial save is needed
         
         # Inisialisasi UI
         self._create_ui()
         self._process_log_queue()
         self._load_settings()
-        self._init_analytics()
+        self._init_analytics() # This might set _needs_initial_save
         self._load_cache()
         
+        # Perform initial save if needed after loading and analytics init
+        if self._needs_initial_save:
+            self._save_settings()
+            self._needs_initial_save = False # Reset flag
+            
         # Eksekusi sebelum menutup aplikasi
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         
@@ -452,7 +461,7 @@ Konfigurasi perilaku aplikasi:
             new_id = str(uuid.uuid4())
             self.installation_id.set(new_id)
             self._log(f"Membuat ID instalasi baru: {new_id}", "info")
-            self._save_settings() # Simpan ID baru
+            self._needs_initial_save = True # Mark that settings need saving
 
         # Kirim event startup jika diizinkan
         self._send_analytics_event("app_start")
@@ -550,9 +559,9 @@ Konfigurasi perilaku aplikasi:
             if keys:
                 self.api_keys_list = keys
                 self._update_api_textbox()
-                self._log(f"Berhasil memuat {len(keys)} API key")
+                self._log(f"Berhasil memuat {len(keys)} API key", "success") # Add success tag
             else:
-                tk.messagebox.showwarning("File Kosong", 
+                tk.messagebox.showwarning("File Kosong",
                     f"File API keys kosong atau tidak valid.")
         except Exception as e:
             self._log(f"Error saat memuat API keys: {e}")
@@ -578,7 +587,7 @@ Konfigurasi perilaku aplikasi:
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write("\n".join(keys_to_save))
-            self._log(f"API Keys ({len(keys_to_save)}) disimpan ke file")
+            self._log(f"API Keys ({len(keys_to_save)}) disimpan ke file", "success") # Add success tag
         except Exception as e:
             self._log(f"Error saat menyimpan API keys: {e}")
             tk.messagebox.showerror("Error", f"Gagal menyimpan API keys: {e}")
@@ -696,12 +705,8 @@ Konfigurasi perilaku aplikasi:
                 self._log(f"File config tidak ditemukan", "warning")
                 self.analytics_enabled_var.set(True) # Default True untuk instalasi baru
                 self.installation_id.set("")
-                
-                try:
-                    self._save_settings()
-                    self._log("File config baru telah dibuat", "info")
-                except Exception as save_e:
-                    self._log(f"Gagal membuat file config baru: {save_e}", "error")
+                self._needs_initial_save = True # Mark that settings need saving because config was missing
+                self._log("File config baru akan dibuat setelah inisialisasi", "info")
         except Exception as e:
             self._log(f"Error memuat pengaturan: {e}", "error")
             import traceback
@@ -1048,9 +1053,9 @@ Konfigurasi perilaku aplikasi:
             remaining_files = total - current
             time_left = time_per_file * remaining_files
             
-            elapsed_str = self._format_time(elapsed_time)
-            left_str = self._format_time(time_left)
-            self._log(f"Progres: {current}/{total} - sisa waktu: {left_str}", "info")
+            # elapsed_str = self._format_time(elapsed_time)
+            # left_str = self._format_time(time_left)
+            # self._log(f"Progres: {current}/{total} - sisa waktu: {left_str}", "info")
         
         self.update_idletasks()
     
@@ -1194,12 +1199,86 @@ Konfigurasi perilaku aplikasi:
             if self.winfo_exists():
                 self._log_queue_after_id = self.after(100, self._process_log_queue)
     
+    def _should_display_in_gui(self, message):
+        """Memeriksa apakah pesan harus ditampilkan di GUI log."""
+        # Pola regex untuk pesan yang diizinkan
+        allowed_patterns = [
+            r"^Kompresi otomatis aktif untuk file besar$",
+            r"^Memulai proses \(\d+ worker, delay \d+s, rotasi API aktif\)$",
+            r"^Ditemukan \d+ file untuk diproses$",
+            r"^Output CSV akan disimpan di subfolder: metadata_csv$",
+            r"^ → Memproses .+\.\w+\.\.\.$",
+            r"^Batch \d+: Menunggu hasil \d+ file\.\.\.$",
+            r"^✓ .+\.\w+ → .+\.\w+$", # Matches success WITH rename
+            r"^✓ .+\.\w+$",          # Matches success WITHOUT rename
+            r"^✗ .+\.\w+ \(.*\)$",   # Matches failure messages like ✗ filename (reason)
+            r"^✗ .+\.\w+$",
+            #r"^⨯ .+$",               # Matches failure messages starting with ⨯
+            r"^Cool-down \d+ detik dulu ngabbbb\.\.\.$", # Match the actual message format
+            # r"^Menyimpan pengaturan\.\.\.$", # Commented out as it might be too verbose
+            # API Key Load/Save messages
+            r"^Berhasil memuat \d+ API key$",
+            r"^API Keys \(\d+\) disimpan ke file$",
+            # Stop/Cancel messages
+            r"^Menerima permintaan berhenti\.\.\.$",
+            r"^Mode executable terdeteksi, menggunakan interrupt force\.\.\.$",
+            r"^Menghentikan semua proses aktif\.\.\.$",
+            r"^Thread tidak merespons setelah \d+\.\d+ detik, melakukan force reset UI\.\.\.$",
+            r"^Proses dihentikan sebelum mulai \(deteksi awal\)$",
+            r"^Stop terdeteksi setelah memproses hasil batch\.$",
+            r"^Proses dihentikan oleh pengguna \(deteksi cooldown\)$",
+            r"^Membatalkan pekerjaan yang tersisa\.\.\.$",
+            # Analytics/Initialization messages
+            r"^Membuat ID instalasi baru: .+$",
+            r"^ID Instalasi ditemukan: .+\.\.\.$",
+            r"^ID Instalasi belum ada di config\.$",
+            r"^Mencoba memuat pengaturan\.\.\.$",
+            r"^Pengaturan lain berhasil dimuat dari konfigurasi$",
+            r"^File config tidak ditemukan$",
+            r"^File config baru telah dibuat$",
+            # Patterns for summary block lines
+            r"^============= Ringkasan Proses =============",
+            r"^Total file: \d+$",
+            r"^Berhasil diproses: \d+$",
+            r"^Gagal: \d+$",
+            r"^Dilewati: \d+$",
+            r"^Dihentikan: \d+$",
+            r"^=========================================$"
+        ]
+
+        # Check if message matches any allowed pattern
+        for pattern in allowed_patterns:
+            if re.match(pattern, message):
+                # Handle summary block state
+                if message == "============= Ringkasan Proses =============":
+                    self._in_summary_block = True
+                elif message == "=========================================":
+                    self._in_summary_block = False
+                return True
+        
+        # Allow any message if we are inside the summary block
+        if self._in_summary_block:
+             # Check if this line marks the end of the summary
+            if re.match(r"^=========================================$", message):
+                self._in_summary_block = False # Reset flag after matching end marker
+            return True
+
+        return False
+
     def _write_to_log(self, message, tag=None):
-        """Menulis pesan ke log text box."""
+        """Menulis pesan ke log text box, setelah difilter."""
+        # Filter pesan sebelum menulis ke GUI
+        if not self._should_display_in_gui(message):
+            # Reset summary flag if message is outside summary block logic but flag is true
+            # This handles cases where the end marker might be missed or processing stops mid-summary
+            if self._in_summary_block and not message.startswith("="): 
+                 self._in_summary_block = False
+            return # Jangan tampilkan pesan ini di GUI
+
         try:
             self.log_text.configure(state=tk.NORMAL)
             
-            # Auto-detect tag based on message content
+            # Auto-detect tag based on message content (only for displayed messages)
             if tag is None:
                 if message.startswith("✓"):
                     tag = "success"

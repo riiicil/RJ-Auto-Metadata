@@ -106,7 +106,7 @@ def write_exif_with_exiftool(image_path, output_path, metadata, stop_event):
         result = subprocess.run(clear_command, check=True, capture_output=True, text=True,
                                 encoding='utf-8', errors='replace', timeout=30,
                                 creationflags=subprocess.CREATE_NO_WINDOW)
-        log_message("  Metadata lama dibersihkan dari file")
+        # log_message("  Metadata lama dibersihkan dari file")
     except Exception as e:
         log_message(f"  Warning: Gagal membersihkan metadata lama: {e}")
     

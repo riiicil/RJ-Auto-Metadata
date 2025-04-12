@@ -74,7 +74,7 @@ def process_vector_file(input_path, output_dir, api_keys, stop_event, auto_kateg
         if check_stop_event(stop_event):
             return "stopped", None, None
         
-        log_message(f"  Memulai konversi {ext_lower.upper()} ke {target_format}...")
+        # log_message(f"  Memulai konversi {ext_lower.upper()} ke {target_format}...")
         conversion_success, error_msg = conversion_func(input_path, temp_raster_path, stop_event)
         
         if not conversion_success:
@@ -312,7 +312,7 @@ def process_single_file(input_path, output_dir, api_keys_list, rename_enabled, a
                         else:
                             try:
                                 shutil.move(initial_output_path, new_path)
-                                log_message(f"  -> Berhasil di-rename menjadi: {new_base_filename}")
+                                # log_message(f"  -> Berhasil di-rename menjadi: {new_base_filename}")
                                 final_output_path = new_path
                                 new_filename = new_base_filename
                             except Exception as e_rename:
