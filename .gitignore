@@ -1,6 +1,11 @@
 firebase_config.py
 src/config/firebase_config.py
 
+# Ignore bundled external tools
+tools/exiftool/
+tools/ghostscript/
+tools/ffmpeg/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.pyc
