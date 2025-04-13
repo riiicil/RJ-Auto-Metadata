@@ -1,0 +1,2 @@
+# Mark the bundled ExifTool directory as vendored to exclude from language stats
+tools/exiftool/** linguist-vendored
