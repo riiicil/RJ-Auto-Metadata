@@ -1,23 +1,103 @@
-
 firebase_config.py
 src/config/firebase_config.py
 
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
 *.so
 
+# C extensions
+*.so
 
+# Distribution / packaging
+build/
+dist/
+*.spec
+*.egg-info/
+.eggs/
+
+# PyInstaller
+# Usually these files are written by a python script from a template
+# before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Virtual Environments
 env/
 venv/
 ENV/
 .env
+env.bak/
+venv.bak/
 
+# Spyder project settings
+.spyderproject
+.spyproject
 
-.idea/
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# VS Code settings
 .vscode/
+
+# IDEA project files
+.idea/
+
+# Vim swap files
 *.swp
 *.swo
+
+# macOS specific files
 .DS_Store
+
+# Log files
+*.log
+
+# Application-specific config/cache (if accidentally created in project dir)
+config.json
+processed_cache.json
+
+# Sensitive configuration (keep existing)
+firebase_config.py
+src/config/firebase_config.py

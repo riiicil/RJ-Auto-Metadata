@@ -1,3 +1,19 @@
+# RJ Auto Metadata
+# Copyright (C) 2025 Riiicil
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 # src/processing/video_processing.py
 import os
 import time
@@ -254,20 +270,6 @@ def process_video(input_path, output_dir, api_keys, stop_event, auto_kategori_en
     else:
         log_message(f"  Format {ext_lower} tidak optimal untuk metadata, melakukan copy tanpa metadata")
         status = "processed_no_exif"
-    
-    # Tulis metadata ke CSV
-    try:
-        csv_subfolder = os.path.join(output_dir, "metadata_csv")
-        write_to_platform_csvs(
-            csv_subfolder,
-            os.path.basename(initial_output_path),
-            metadata.get('title', ''),
-            metadata.get('description', ''),
-            metadata.get('tags', []),
-            auto_kategori_enabled
-        )
-    except Exception as e:
-        log_message(f"  Warning: Gagal menulis metadata ke CSV: {e}")
     
     # Bersihkan frame yang diekstrak
     for frame in extracted_frames + compressed_frames:

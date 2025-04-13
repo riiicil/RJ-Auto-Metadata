@@ -1,3 +1,19 @@
+# RJ Auto Metadata
+# Copyright (C) 2025 Riiicil
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 # src/processing/batch_processing.py
 import os
 import shutil
@@ -16,6 +32,7 @@ from src.processing.vector_processing.format_eps_ai_processing import convert_ep
 from src.processing.vector_processing.format_svg_processing import convert_svg_to_jpg
 from src.processing.video_processing import process_video
 from src.api.gemini_api import check_stop_event, is_stop_requested
+from src.metadata.csv_exporter import write_to_platform_csvs
 
 def process_vector_file(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True):
     """
@@ -131,20 +148,6 @@ def process_vector_file(input_path, output_dir, api_keys, stop_event, auto_kateg
             log_message(f"  Menimpa file output yang sudah ada: {filename}")
             shutil.copy2(input_path, initial_output_path)
         
-        # Tulis metadata ke CSV
-        try:
-            from src.metadata.csv_exporter import write_to_platform_csvs
-            csv_subfolder = os.path.join(output_dir, "metadata_csv")
-            write_to_platform_csvs(
-                csv_subfolder,
-                os.path.basename(initial_output_path),
-                metadata.get('title', ''),
-                metadata.get('description', ''),
-                metadata.get('tags', []),
-                auto_kategori_enabled
-            )
-        except Exception as e:
-            log_message(f"  Warning: Gagal menulis metadata ke CSV: {e}")
         
         return "processed_no_exif", metadata, initial_output_path
     except Exception as e:
@@ -326,6 +329,36 @@ def process_single_file(input_path, output_dir, api_keys_list, rename_enabled, a
                     os.remove(input_path)
                 except OSError as e_remove:
                     log_message(f"  WARNING: Gagal menghapus file asli '{original_filename}': {e_remove}")
+
+            # Tulis metadata ke CSV setelah rename (jika ada) dan proses berhasil
+            if status in ["processed_exif", "processed_no_exif"] and processed_metadata and final_output_path:
+                try:
+                    # Tentukan direktori CSV (gunakan target_output_dir karena file sudah dipindah ke sana)
+                    csv_subfolder = os.path.join(target_output_dir, "metadata_csv")
+                    if not os.path.exists(csv_subfolder):
+                        os.makedirs(csv_subfolder, exist_ok=True)
+
+                    # Dapatkan nama file akhir untuk kolom Filename
+                    final_filename_for_csv = os.path.basename(final_output_path)
+
+                    # Tentukan judul untuk kolom Title/Description
+                    # Jika di-rename, gunakan nama file baru (tanpa ekstensi) sebagai judul
+                    # Jika tidak, gunakan judul dari metadata
+                    title_for_csv = processed_metadata.get('title', '')
+                    if rename_enabled and new_filename:
+                        title_for_csv = os.path.splitext(new_filename)[0]
+
+                    # Tulis ke CSV menggunakan nama file akhir dan judul yang sesuai
+                    write_to_platform_csvs(
+                        csv_subfolder,
+                        final_filename_for_csv,
+                        title_for_csv,
+                        processed_metadata.get('description', ''), # Deskripsi tetap dari metadata
+                        processed_metadata.get('tags', []), # Keywords tetap dari metadata
+                        auto_kategori_enabled # Flag kategori
+                    )
+                except Exception as e_csv:
+                    log_message(f"  Warning: Gagal menulis metadata ke CSV untuk {final_filename_for_csv}: {e_csv}")
         
     except Exception as e:
         log_message(f"Error processing {original_filename}: {e}", "error")

@@ -1,0 +1,31 @@
+=========================
+RJ Auto Metadata - Quick Guide
+=========================
+
+**IMPORTANT: External Tools Required!**
+
+Before running, you MUST install these tools and ensure they are in your system PATH:
+1.  ExifTool: https://exiftool.org/
+2.  Ghostscript: https://www.ghostscript.com/releases/gsdnld.html (for AI/EPS files)
+3.  FFmpeg: https://ffmpeg.org/download.html (for MP4/MKV files)
+4.  GTK3 Runtime: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases (for SVG files, especially on Windows)
+
+**Setup Steps:**
+
+1.  (Optional) Create a Python virtual environment: `python -m venv venv` then activate it.
+2.  Install Python libraries: `pip install -r requirements.txt`
+3.  Get Google Gemini API Key(s): https://aistudio.google.com/app/apikey
+
+**How to Run:**
+
+1.  Launch the application: `python main.py`
+2.  Select Input Folder (where your files are).
+3.  Select Output Folder (where processed files will be saved - MUST be different from input).
+4.  Paste your Gemini API Key(s) into the text box (one per line).
+5.  Adjust Workers/Delay/Options if needed.
+6.  Click "Mulai Proses".
+7.  Monitor the Log and Status sections.
+
+=========================
+See README.md for full details and troubleshooting.
+© Riiicil 2025

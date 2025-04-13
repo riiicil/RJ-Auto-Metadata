@@ -1,3 +1,19 @@
+# RJ Auto Metadata
+# Copyright (C) 2025 Riiicil
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 # src/ui/app.py
 import os
 import sys
@@ -8,9 +24,11 @@ import random
 import json
 import platform
 import re  # Import regex module
+import sys # Needed for sys.exit
 import uuid
 import webbrowser
 import tkinter as tk
+import tkinter.messagebox # Added for checks below
 import customtkinter as ctk
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
@@ -20,9 +38,12 @@ from src.utils.file_utils import read_api_keys, is_writable_directory
 from src.utils.analytics import send_analytics_event
 from src.config.config import MEASUREMENT_ID, API_SECRET, ANALYTICS_URL
 from src.processing.batch_processing import batch_process_files
-from src.metadata.exif_writer import check_exiftool_exists
+# from src.metadata.exif_writer import check_exiftool_exists # Moved check inside __init__
 from src.ui.widgets import ToolTip
 from src.ui.dialogs import CompletionMessageManager
+# Import system checks
+from src.utils.system_checks import check_ghostscript, check_ffmpeg, check_gtk_dependencies
+from src.metadata.exif_writer import check_exiftool_exists # Keep this import for the check
 
 # Konstanta aplikasi
 APP_VERSION = "1.0"
@@ -59,10 +80,22 @@ class MetadataApp(ctk.CTk):
         self.font_medium = ctk.CTkFont(family=self.default_font_family, size=13)
         self.font_large = ctk.CTkFont(family=self.default_font_family, size=15, weight="bold")
         self.font_title = ctk.CTkFont(family=self.default_font_family, size=18, weight="bold")
-        
+
+        # Setup state untuk processing (Initialize log_queue earlier)
+        self.start_time = None
+        self.processing_thread = None
+        self.stop_event = threading.Event()
+        self.log_queue = queue.Queue() # Initialize log_queue HERE
+        self._log_queue_after_id = None
+        self._stop_request_time = None
+        self._in_summary_block = False # Flag for summary block
+
+        # --- Dependency Checks ---
+        self._perform_startup_checks() # Call the new check method
+
         # Setup warna dasar
         self.configure(fg_color=("#f0f0f5", "#2d2d30"))
-        
+
         # Variable untuk tracking analitik
         self.analytics_enabled_var = tk.BooleanVar(value=True)
         self.installation_id = tk.StringVar(value="")
@@ -72,7 +105,7 @@ class MetadataApp(ctk.CTk):
         
         # Load icon aplikasi
         try:
-            self.iconbitmap_path = r'C:\Users\admin\Desktop\fundamental\icon.ico'
+            self.iconbitmap_path = r'C:\Users\admin\Desktop\New folder\RJ_Auto_metadata\assets\icon1.ico'
             if os.path.exists(self.iconbitmap_path):
                 self.iconbitmap(self.iconbitmap_path)
             else:
@@ -113,16 +146,7 @@ class MetadataApp(ctk.CTk):
             for theme_path in custom_themes:
                 theme_name = os.path.splitext(os.path.basename(theme_path))[0]
                 self.available_themes.append(theme_name)
-        
-        # Setup state untuk processing
-        self.start_time = None
-        self.processing_thread = None
-        self.stop_event = threading.Event()
-        self.log_queue = queue.Queue()
-        self._log_queue_after_id = None
-        self._stop_request_time = None
-        self._in_summary_block = False # Flag for summary block
-        
+
         # Load konfigurasi
         self.config_path = self._get_config_path()
         self.processed_cache = {}
@@ -170,7 +194,64 @@ class MetadataApp(ctk.CTk):
             print("Aplikasi berjalan sebagai script Python.")
             self.executable_timeout = 3.0
             self.executable_max_wait = 10.0
-            
+
+    def _perform_startup_checks(self):
+        """Performs checks for external dependencies at startup."""
+        self._log("Memeriksa dependensi eksternal...", "info")
+
+        # Check ExifTool (Critical)
+        self._log("Memeriksa ketersediaan Exiftool...", "info")
+        exiftool_ok = check_exiftool_exists()
+        if not exiftool_ok:
+            self._log("Exiftool tidak ditemukan.", "error")
+            tkinter.messagebox.showerror("Error Kritis",
+                "Exiftool tidak ditemukan atau tidak berfungsi.\n"
+                "Aplikasi tidak dapat berjalan tanpa Exiftool.\n"
+                "Pastikan sudah terinstal dan ada di PATH.")
+            self.destroy() # Close the app window cleanly
+            sys.exit(1) # Exit the process
+        else:
+            self._log("Exiftool ditemukan.", "success")
+
+        # Check Ghostscript (Warn only, for AI/EPS)
+        self._log("Memeriksa ketersediaan Ghostscript...", "info")
+        gs_ok = check_ghostscript()
+        if not gs_ok:
+            self._log("Ghostscript tidak ditemukan. Pemrosesan AI/EPS akan gagal.", "warning")
+            tkinter.messagebox.showwarning("Peringatan Ketergantungan",
+                "Ghostscript tidak ditemukan atau tidak berfungsi.\n"
+                "Pastikan sudah terinstal dan ada di PATH.\n"
+                "Pemrosesan file AI/EPS akan gagal.")
+        else:
+            self._log("Ghostscript ditemukan.", "success")
+
+        # Check FFmpeg (Warn only, for Video)
+        self._log("Memeriksa ketersediaan FFmpeg...", "info")
+        ffmpeg_ok = check_ffmpeg()
+        if not ffmpeg_ok:
+            self._log("FFmpeg tidak ditemukan. Pemrosesan Video akan gagal.", "warning")
+            tkinter.messagebox.showwarning("Peringatan Ketergantungan",
+                "FFmpeg tidak ditemukan atau tidak berfungsi.\n"
+                "Pastikan sudah terinstal dan ada di PATH.\n"
+                "Pemrosesan file Video (MP4/MKV) akan gagal.")
+        else:
+            self._log("FFmpeg ditemukan.", "success")
+
+        # Check GTK Dependencies (Warn only, for SVG)
+        self._log("Memeriksa ketersediaan dependensi GTK (cairocffi)...", "info")
+        gtk_ok = check_gtk_dependencies()
+        if not gtk_ok:
+            self._log("Dependensi GTK (cairocffi) tidak ditemukan. Pemrosesan SVG mungkin gagal.", "warning")
+            tkinter.messagebox.showwarning("Peringatan Ketergantungan",
+                "Gagal mengimpor dependensi GTK (cairocffi).\n"
+                "Ini mungkin disebabkan oleh GTK3 Runtime yang hilang atau salah konfigurasi.\n"
+                "Pemrosesan file SVG mungkin akan gagal.")
+        else:
+             self._log("Dependensi GTK (cairocffi) ditemukan.", "success")
+
+        self._log("Pemeriksaan dependensi selesai.", "info")
+
+
     def _is_running_as_executable(self):
         """Memeriksa apakah aplikasi berjalan sebagai executable."""
         if getattr(sys, 'frozen', False):
@@ -255,7 +336,7 @@ Gambar dari folder input akan diproses dengan API, kemudian disalin ke folder ou
         self.input_entry = ctk.CTkEntry(folder_frame, textvariable=self.input_dir)
         self.input_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
         
-        self.input_button = ctk.CTkButton(folder_frame, text="Browse", command=self._select_input_folder,width=70)
+        self.input_button = ctk.CTkButton(folder_frame, text="Browse", command=self._select_input_folder, width=70, fg_color="#079183")
         self.input_button.grid(row=1, column=2, padx=5, pady=5)
         
         ctk.CTkLabel(folder_frame, text="Output Folder:").grid(row=2, column=0, padx=10, pady=5, sticky="w")
@@ -263,7 +344,7 @@ Gambar dari folder input akan diproses dengan API, kemudian disalin ke folder ou
         self.output_entry = ctk.CTkEntry(folder_frame, textvariable=self.output_dir)
         self.output_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
         
-        self.output_button = ctk.CTkButton(folder_frame, text="Browse", command=self._select_output_folder, width=70)
+        self.output_button = ctk.CTkButton(folder_frame, text="Browse", command=self._select_output_folder, width=70, fg_color="#079183")
         self.output_button.grid(row=2, column=2, padx=5, pady=5)
         
         folder_tooltip_text = "Input dan Output harus berbeda. \nJangan menggunakan folder yang sama untuk keduanya."
@@ -279,14 +360,14 @@ Gambar dari folder input akan diproses dengan API, kemudian disalin ke folder ou
         api_frame.grid_columnconfigure(2, weight=0)
         
         api_header_tooltip = """
-        Tambahkan satu atau lebih API key Gemini untuk memproses gambar.
-        Setiap baris adalah satu API key.
+Tambahkan satu atau lebih API key Gemini untuk memproses gambar.
+Setiap baris adalah satu API key.
 
-        • Anda bisa mendapatkan API key dari\n  Google AI Studio
-        • Batas pemrosesan 60 gambar/menit\n  per API key
-        • Rotasi otomatis beberapa API key\n  terjadi saat pemrosesan batch
+    • Anda bisa mendapatkan API key\n       dari Google AI Studio
+    • Batas pemrosesan 60 gambar\n       per menit per API key
+    • Rotasi otomatis beberapa API key\n       terjadi saat pemrosesan batch
 
-        Semakin banyak API key, semakin cepat proses batch.
+Semakin banyak API key, semakin cepat proses batch.
         """
         # --- API Header Frame ---
         api_header_frame = ctk.CTkFrame(api_frame, fg_color="transparent")
@@ -316,25 +397,25 @@ Gambar dari folder input akan diproses dengan API, kemudian disalin ke folder ou
         api_load_save_buttons = ctk.CTkFrame(api_frame, fg_color="transparent")
         api_load_save_buttons.grid(row=1, column=1, padx=5, pady=(12, 10), sticky="ns")
         
-        self.load_api_button = ctk.CTkButton(api_load_save_buttons, text="Load", width=70, command=self._load_api_keys)
-        self.load_api_button.pack(pady=5, fill=tk.X) 
+        self.load_api_button = ctk.CTkButton(api_load_save_buttons, text="Load", width=70, command=self._load_api_keys, fg_color="#079183")
+        self.load_api_button.pack(pady=5, fill=tk.X)
         
-        self.save_api_button = ctk.CTkButton(api_load_save_buttons, text="Save", width=70, command=self._save_api_keys)
+        self.save_api_button = ctk.CTkButton(api_load_save_buttons, text="Save", width=70, command=self._save_api_keys, fg_color="#079183")
         self.save_api_button.pack(pady=5, fill=tk.X)
         
-        self.delete_api_button = ctk.CTkButton(api_load_save_buttons, text="Delete", width=70, command=self._delete_selected_api_key)
+        self.delete_api_button = ctk.CTkButton(api_load_save_buttons, text="Delete", width=70, command=self._delete_selected_api_key, fg_color="#079183")
         self.delete_api_button.pack(pady=5, fill=tk.X)
         
         process_buttons_frame = ctk.CTkFrame(api_frame, fg_color="transparent")
         process_buttons_frame.grid(row=1, column=2, padx=(5, 10), pady=(0, 10), sticky="ns")
         
-        self.start_button = ctk.CTkButton(process_buttons_frame, text="Mulai Proses", command=self._start_processing, font=self.font_medium, height=35, fg_color=("#3a7ebf", "#1f538d"))
+        self.start_button = ctk.CTkButton(process_buttons_frame, text="Mulai Proses", command=self._start_processing, font=self.font_medium, height=35, fg_color="#079183")
         self.start_button.pack(pady=5, fill=tk.X)
         
         self.stop_button = ctk.CTkButton(process_buttons_frame, text="Hentikan", command=self._stop_processing, font=self.font_medium, height=35, state=tk.DISABLED, fg_color=("#bf3a3a", "#8d1f1f"))
         self.stop_button.pack(pady=5, fill=tk.X)
         
-        self.clear_button = ctk.CTkButton(process_buttons_frame, text="Clear Log", command=self._clear_log, font=self.font_medium, height=35)
+        self.clear_button = ctk.CTkButton(process_buttons_frame, text="Clear Log", command=self._clear_log, font=self.font_medium, height=35, fg_color="#079183")
         self.clear_button.pack(pady=5, fill=tk.X)
     
     def _create_options_frame(self, parent):
@@ -346,15 +427,17 @@ Gambar dari folder input akan diproses dengan API, kemudian disalin ke folder ou
         settings_header_tooltip = """
 Konfigurasi perilaku aplikasi:
 
-- Rename Files: Jika dicentang, file\n   akan diganti namanya berdasarkan\n   metadata judul yang dihasilkan API
-  
-- Workers: Jumlah thread pemrosesan\n  paralel (1-5) Lebih banyak worker\n  maka proses lebih cepat, namun\n  penggunaan API juga lebih cepat
-  
-- Delay (s): Jeda antara batch\n  pemrosesan dalam detik.\n  Berguna untuk menghindari\n  rate limit API
+- Workers: Jumlah thread paralel untuk\n  memproses file (Misal: 1-10). Lebih\n  banyak worker mempercepat proses,\n  namun juga meningkatkan\n  frekuensi penggunaan API.
 
-- Rekomendasi: Gunakan 3 workers\n  dan delay 10 detik untuk\n  menghindari rate limit API.
+- Delay (s): Jeda waktu (detik) antar\n  permintaan ke API. Berguna untuk\n  mencegah pembatasan (rate limit) API.
 
-*NB: Pengaturan ini akan otomatis\n       disimpan untuk sesi berikutnya.
+- Rename Files: Jika aktif, nama file\n  akan diubah otomatis berdasarkan\n  metadata 'judul' dari API.
+
+- Auto Kategori: Jika aktif, otomatis\n  mengkategorikan file sesuai metadata\n  dari API. (Hasilnya mungkin belum\n  sempurna, harap periksa kembali).
+
+- Auto Foldering: Jika aktif, file yang\n  diproses akan otomatis dimasukkan ke\n  dalam folder berdasarkan tipenya\n  (misal: Images, Vectors, Video).
+    
+*NB: Pengaturan ini disimpan secara\n        otomatis untuk sesi berikutnya.
 """
         settings_header = self._create_header_with_help(options_frame, "Pengaturan", settings_header_tooltip, font=ctk.CTkFont(size=15, weight="bold"))
         settings_header.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="wns")
@@ -442,7 +525,7 @@ Konfigurasi perilaku aplikasi:
         watermark_frame.grid_columnconfigure(0, weight=1)
         watermark_frame.grid_columnconfigure(1, weight=1)
         
-        watermark_label = ctk.CTkLabel(watermark_frame, text="© Riiicil 2025 - Ver 1.0", font=ctk.CTkFont(size=10), text_color=("gray50", "gray70"))
+        watermark_label = ctk.CTkLabel(watermark_frame, text="© Riiicil 2025 - Ver 2.0", font=ctk.CTkFont(size=10), text_color=("gray50", "gray70"))
         watermark_label.grid(row=0, column=1, sticky="e", padx=(5, 10))
     
     def _create_header_with_help(self, parent, text, tooltip_text, font=None):

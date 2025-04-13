@@ -1,3 +1,19 @@
+# RJ Auto Metadata
+# Copyright (C) 2025 Riiicil
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 # src/ui/dialogs.py
 import os
 import random
@@ -93,7 +109,7 @@ class DonationDialog:
             print(f"Error saat mengatur ulang icon Toplevel setelah lift: {e}")
             
     def _open_donation_link(self):
-        donation_url = "http://lynk.id/payme/riiicil"
+        donation_url = "https://saweria.co/riiicil"
         try:
             webbrowser.open(donation_url)
             log_message(f"Membuka link donasi: {donation_url}", "info")
