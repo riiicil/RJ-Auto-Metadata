@@ -5,6 +5,7 @@ src/config/firebase_config.py
 tools/exiftool/
 tools/ghostscript/
 tools/ffmpeg/
+Installer/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -48,11 +48,16 @@ def check_exiftool_exists():
                 base_dir = os.path.dirname(os.path.abspath(__file__))
             
             potential_paths = [
+                # Path yang benar untuk struktur installer kita
+                os.path.join(base_dir, "tools", "exiftool", "exiftool.exe"), 
+                # Path lama (mungkin berguna untuk development/struktur lain)
                 os.path.join(base_dir, "exiftool.exe"),
                 os.path.join(base_dir, "tools", "exiftool.exe"), 
                 os.path.join(os.path.dirname(base_dir), "tools", "exiftool.exe"),
-                os.path.join(os.environ.get('TEMP', ''), "_MEI", "tools", "exiftool.exe"),
-                os.path.abspath("tools/exiftool.exe")
+                os.path.join(os.environ.get('TEMP', ''), "_MEI", "tools", "exiftool", "exiftool.exe"), # Path _MEI yang benar
+                os.path.join(os.environ.get('TEMP', ''), "_MEI", "tools", "exiftool.exe"), # Path _MEI lama
+                os.path.abspath("tools/exiftool/exiftool.exe"), # Path relatif yang benar
+                os.path.abspath("tools/exiftool.exe") # Path relatif lama
             ]
             
             for path in potential_paths:
@@ -67,7 +72,10 @@ def check_exiftool_exists():
             return False
         except Exception as e:
             log_message(f"Error tak terduga saat memeriksa exiftool: {e}")
-            return False
+        return False
+
+# Menyimpan path exiftool saat ditemukan
+EXIFTOOL_PATH = None
 
 def write_exif_with_exiftool(image_path, output_path, metadata, stop_event):
     """
@@ -107,9 +115,13 @@ def write_exif_with_exiftool(image_path, output_path, metadata, stop_event):
         log_message("  Info: Tidak ada metadata valid untuk ditulis ke EXIF.")
         return True
     
+    # Tentukan perintah exiftool yang akan digunakan (path absolut jika ditemukan, atau default)
+    exiftool_cmd = EXIFTOOL_PATH if EXIFTOOL_PATH else "exiftool"
+    log_message(f"  Menggunakan perintah exiftool: {exiftool_cmd}")
+
     # Bersihkan metadata yang ada terlebih dahulu
     clear_command = [
-        "exiftool",
+        exiftool_cmd,
         "-all=",
         "-overwrite_original",
         output_path
@@ -133,7 +145,7 @@ def write_exif_with_exiftool(image_path, output_path, metadata, stop_event):
     
     # Buat command untuk menulis metadata baru
     command = [
-        "exiftool",
+        exiftool_cmd,
         "-overwrite_original",
         "-charset", "UTF8",
         "-codedcharacterset=utf8"
@@ -224,6 +236,9 @@ def write_exif_with_exiftool(image_path, output_path, metadata, stop_event):
         log_message(f"  Error tak terduga saat menjalankan exiftool: {e}")
         return False
 
+# (Hapus deklarasi EXIFTOOL_PATH duplikat di sini jika ada)
+# EXIFTOOL_PATH = None 
+
 def write_exif_to_video(input_path, output_path, metadata, stop_event):
     """
     Menulis metadata ke file video menggunakan exiftool.
@@ -246,9 +261,13 @@ def write_exif_to_video(input_path, output_path, metadata, stop_event):
         log_message("  Proses dihentikan sebelum menulis metadata ke video.")
         return False
     
+    # Tentukan perintah exiftool yang akan digunakan (path absolut jika ditemukan, atau default)
+    exiftool_cmd = EXIFTOOL_PATH if EXIFTOOL_PATH else "exiftool"
+    log_message(f"  Menggunakan perintah exiftool untuk video: {exiftool_cmd}")
+
     # Buat command untuk menulis metadata ke video
     command = [
-        "exiftool",
+        exiftool_cmd,
         "-overwrite_original",
         "-charset", "UTF8",
         "-codedcharacterset=utf8"

@@ -102,17 +102,35 @@ class MetadataApp(ctk.CTk):
         
         # Setup UI dasar
         self.title("Auto Metadata")
-        
-        # Load icon aplikasi
+
+        # --- Debug Execution Mode ---
+        log_message(f"--- Debug Info ---", "info")
+        log_message(f"sys.frozen: {getattr(sys, 'frozen', 'Not Set')}", "info")
+        log_message(f"sys.executable: {sys.executable}", "info")
         try:
-            self.iconbitmap_path = r'C:\Users\admin\Desktop\New folder\RJ_Auto_metadata\assets\icon1.ico'
+            log_message(f"__file__ (app.py): {__file__}", "info")
+        except NameError:
+            log_message(f"__file__ (app.py): Not Defined", "info")
+        log_message(f"os.getcwd(): {os.getcwd()}", "info")
+        # --- End Debug Info ---
+
+        # Determine base directory using the centralized function
+        # Import _get_base_dir from system_checks
+        from src.utils.system_checks import _get_base_dir
+        base_dir = _get_base_dir() # Use the function from system_checks
+
+        # Load icon aplikasi using the determined base_dir
+        try:
+            self.iconbitmap_path = os.path.join(base_dir, 'assets', 'icon1.ico')
+            log_message(f"Attempting to load icon from: {self.iconbitmap_path}", "info") # Log path being tried
             if os.path.exists(self.iconbitmap_path):
                 self.iconbitmap(self.iconbitmap_path)
+                log_message(f"Icon aplikasi dimuat dari: {self.iconbitmap_path}", "info") # Add log
             else:
-                print(f"Warning: File icon tidak ditemukan di: {self.iconbitmap_path}")
+                log_message(f"Warning: File icon tidak ditemukan di path relatif: {self.iconbitmap_path}", "warning") # Use log
                 self.iconbitmap_path = None
         except Exception as e:
-            print(f"Error saat mengatur icon aplikasi: {e}")
+            log_message(f"Error saat mengatur icon aplikasi: {e}", "error") # Use log
             self.iconbitmap_path = None
         
         # Setup ukuran window

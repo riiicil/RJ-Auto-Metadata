@@ -43,13 +43,20 @@ class DonationDialog:
         self.dialog.geometry("400x250")
         self.dialog.resizable(False, False)
         self.dialog.title("INGFOOOO!!!")
-        
-        try:
-            if self.iconbitmap_path and os.path.exists(self.iconbitmap_path):
-                self.dialog.wm_iconbitmap(self.iconbitmap_path)
-        except Exception as e:
-            print(f"Error saat mengatur icon aplikasi: {e}")
-        
+
+        # Defer setting the icon until the window is likely idle
+        def _set_icon():
+            try:
+                if self.iconbitmap_path and os.path.exists(self.iconbitmap_path):
+                    self.dialog.iconbitmap(self.iconbitmap_path)
+                    log_message(f"Deferred set icon for DonationDialog using iconbitmap: {self.iconbitmap_path}", "info")
+                else:
+                    log_message(f"Deferred icon path not valid for DonationDialog: {self.iconbitmap_path}", "warning")
+            except Exception as e:
+                log_message(f"Error setting deferred icon for DonationDialog: {e}", "error")
+
+        self.dialog.after_idle(_set_icon) # Schedule the icon setting
+
         self.dialog.grab_set()
         self.parent.update_idletasks()
         
@@ -102,11 +109,12 @@ class DonationDialog:
         # Lift dialog setelah dibuat
         self.dialog.after(100, self.dialog.lift)
         
-        try:
-            if self.iconbitmap_path and os.path.exists(self.iconbitmap_path):
-                 self.dialog.wm_iconbitmap(self.iconbitmap_path) 
-        except Exception as e:
-            print(f"Error saat mengatur ulang icon Toplevel setelah lift: {e}")
+        # Remove the second attempt after lift, as it's likely redundant
+        # try:
+        #     if self.iconbitmap_path and os.path.exists(self.iconbitmap_path):
+        #          self.dialog.wm_iconbitmap(self.iconbitmap_path)
+        # except Exception as e:
+        #     print(f"Error saat mengatur ulang icon Toplevel setelah lift: {e}")
             
     def _open_donation_link(self):
         donation_url = "https://saweria.co/riiicil"
