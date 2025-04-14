@@ -135,7 +135,7 @@ Follow these steps if you want to run the application directly using Python:
 
 1.  **Clone Repository (Optional):**
     ```bash
-    git clone https://github.com/riiicil/RJ-Auto-Metadata-v2.0.git
+    git clone https://github.com/riiicil/RJ-Auto-Metadata-v2.0.0.git
     cd RJ_Auto_metadata
     ```
     (Or download & extract the source code ZIP from the repository page).
