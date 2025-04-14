@@ -101,7 +101,7 @@ The application relies on several external command-line tools for full functiona
 
 1.  **ExifTool:** Reads/writes metadata (EXIF, IPTC, XMP). **(Bundled)**
 2.  **Ghostscript:** Needed for `.eps` and `.ai` file analysis/conversion. **(Bundled)**
-3.  **FFmpeg:** Needed by OpenCV for `.mp4`, `.mkv` frame reading. **(Bundled)**
+3.  **FFmpeg:** Needed by OpenCV for `.mp4`, `.mkv`, `avi`, `mov`, `mpeg`, `etc` frame reading. **(Bundled)**
 4.  **GTK3 Runtime (Windows Only):** Needed by CairoSVG for SVG rendering. **(Handled by Installer)**
 
 *   **For users of the provided `.exe` installer:**
@@ -121,7 +121,7 @@ The application relies on several external command-line tools for full functiona
 
 1.  **Clone Repository (Optional):**
     ```bash
-    git clone https://github.com/riiicil/RJ-Auto-Metadata-v.2.0.git
+    git clone https://github.com/riiicil/RJ-Auto-Metadata-v.2.0.0.git
     cd RJ_Auto_metadata
     ```
     (Or download & extract ZIP)
@@ -189,7 +189,7 @@ Stores settings automatically (usually in `Documents/RJAutoMetadata` on Windows)
 
 *   **Images:** `.jpg`, `.jpeg`, `.png`
 *   **Vectors:** `.ai`, `.eps` (Need Ghostscript), `.svg` (Need Ghostscript & GTK3)
-*   **Videos:** `.mp4`, `.mkv` (Need FFmpeg)
+*   **Videos:** `.mp4`, `.mkv`, `avi`, `mov`, `mpeg`, `etc` (Need FFmpeg)
 
 *Processing vectors/videos WILL FAIL without the required external tools!*
 
