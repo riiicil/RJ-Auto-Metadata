@@ -1,4 +1,4 @@
-# RJ Auto Metadata ✨ (v2.0)
+# RJ Auto Metadata ✨ (v2.0.0)
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
@@ -25,7 +25,7 @@ RJ Auto Metadata is a powerful desktop application built with Python and CustomT
 *   **📁 Broad File Format Compatibility:**
     *   **Images:** Processes standard formats like `.jpg`, `.jpeg`, `.png` directly (`src/processing/image_processing/`).
     *   **Vectors:** Handles `.ai`, `.eps`, and `.svg` files. Requires external tools (Ghostscript, GTK3 Runtime) for rendering/conversion before analysis (`src/processing/vector_processing/`).
-    *   **Videos:** Supports `.mp4` and `.mkv`. Extracts representative frames using OpenCV and FFmpeg for analysis (`src/processing/video_processing.py`).
+    *   **Videos:** Supports `.mp4`, `.mkv`, `avi`, `mov`, `mpeg`, `etc`. Extracts representative frames using OpenCV and FFmpeg for analysis (`src/processing/video_processing.py`).
 *   **✍️ Direct Metadata Embedding:**
     *   Integrates with the external **ExifTool** command-line utility (`tools/exiftool/`) to write standardized metadata fields (e.g., XMP:Title, XMP:Description, IPTC:Keywords) into the output files (`src/metadata/exif_writer.py`).
 *   **⚙️ Extensive Customization & Configuration:**
@@ -52,7 +52,9 @@ RJ Auto Metadata is a powerful desktop application built with Python and CustomT
     *   Graceful handling of process interruption (`Stop` button 🛑).
     *   Logs messages with timestamps and severity tags (Info, Warning, Error, Success).
 *   **📈 Optional Usage Analytics:**
-    *   Can send anonymous data (like OS version, event counts, success rates) using Google Analytics Measurement Protocol to help the developer improve the application (`src/utils/analytics.py`). Associated with a unique, anonymous `installation_id`. Can be implicitly disabled by not having Measurement ID/API Secret configured at build time (or potentially via a future setting).
+   *   Can send anonymous data (like OS version, event counts, success rates) using Google Analytics Measurement Protocol to help the developer improve the application (`src/utils/analytics.py`). Associated with a unique, anonymous `installation_id`. Can be implicitly disabled by not having Measurement ID/API Secret configured at build time (or potentially via a future setting).
+*   **👁️‍🗨️ Console Visibility Toggle (Windows Only):**
+   *   Provides a switch in the UI to show or hide the underlying console window, useful for monitoring detailed logs or troubleshooting in the packaged application (`src/utils/system_checks.py`, `src/ui/app.py`). Visibility state is saved in the configuration.
 
 ## 3. 🔄 Workflow Overview
 
@@ -93,29 +95,27 @@ The application follows these general steps during processing:
     *   `portalocker>=3.1.1` (Optional File Locking)
     *   *Plus other dependencies.*
 
-### 4.2. External Tools & Libraries (❗ CRITICAL ❗)
+### 4.2. External Tools & Libraries Dependencies
 
-These **must be installed manually** and accessible (ideally in system PATH):
+The application relies on several external command-line tools for full functionality:
 
-1.  **ExifTool:**
-    *   **Purpose:** Reads/writes metadata (EXIF, IPTC, XMP). Essential!
-    *   **License:** Artistic / GPL
-    *   **Download:** [https://exiftool.org/](https://exiftool.org/)
-    *   **Note:** Version included in `tools/`, but system install preferred.
-2.  **Ghostscript:**
-    *   **Purpose:** Needed for `.eps` and `.ai` file analysis/conversion.
-    *   **License:** AGPLv3
-    *   **Download:** [https://www.ghostscript.com/releases/gsdnld.html](https://www.ghostscript.com/releases/gsdnld.html)
-3.  **FFmpeg:**
-    *   **Purpose:** Needed by OpenCV for `.mp4`, `.mkv` frame reading.
-    *   **License:** LGPL / GPL
-    *   **Download:** [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
-4.  **GTK3 Runtime:**
-    *   **Purpose:** Needed by CairoSVG for SVG rendering (especially on Windows).
-    *   **License:** LGPL
-    *   **Download (Windows):** [GTK for Windows Runtime Installer](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases) or via MSYS2/Chocolatey.
+1.  **ExifTool:** Reads/writes metadata (EXIF, IPTC, XMP). **(Bundled)**
+2.  **Ghostscript:** Needed for `.eps` and `.ai` file analysis/conversion. **(Bundled)**
+3.  **FFmpeg:** Needed by OpenCV for `.mp4`, `.mkv` frame reading. **(Bundled)**
+4.  **GTK3 Runtime (Windows Only):** Needed by CairoSVG for SVG rendering. **(Handled by Installer)**
 
-**Failure to install these external tools WILL cause errors for vector/video files!** 🚫
+*   **For users of the provided `.exe` installer:**
+    *   ✅ ExifTool, Ghostscript, and FFmpeg are **included** within the `tools/` directory of the installation and should work automatically.
+    *   ✅ The installer will attempt to run the **GTK3 Runtime installer** separately during setup. You need to accept its installation for SVG support.
+*   **For users running from source code:**
+    *   ❗ You **must install ExifTool, Ghostscript, FFmpeg, and GTK3 Runtime manually** and ensure they are accessible in your system's PATH.
+    *   Download links:
+        *   ExifTool: [https://exiftool.org/](https://exiftool.org/)
+        *   Ghostscript: [https://www.ghostscript.com/releases/gsdnld.html](https://www.ghostscript.com/releases/gsdnld.html)
+        *   FFmpeg: [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
+        *   GTK3 (Win): [GTK for Windows Runtime Installer](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases)
+
+**Failure of these tools WILL cause errors for vector/video files!** 🚫
 
 ## 5. 🛠️ Installation Guide
 
@@ -135,19 +135,11 @@ These **must be installed manually** and accessible (ideally in system PATH):
     ```bash
     pip install -r requirements.txt
     ```
-4.  **Install External Tool: ExifTool:**
-    *   Download & follow OS-specific instructions from [exiftool.org](https://exiftool.org/).
-    *   Verify: `exiftool -ver` in terminal.
-5.  **Install External Tool: Ghostscript:**
-    *   Download & run installer from [ghostscript.com](https://www.ghostscript.com/releases/gsdnld.html).
-    *   Ensure installation dir is in PATH.
-    *   Verify: `gswin64c -version` (or similar) in terminal.
-6.  **Install External Tool: FFmpeg:**
-    *   Download build from [ffmpeg.org](https://ffmpeg.org/download.html).
-    *   Extract & add the `bin` directory to PATH.
-    *   Verify: `ffmpeg -version` in terminal.
-7.  **Install External Tool: GTK3 Runtime (Windows):**
-    *   Download & run installer from [GTK for Windows Runtime Installer](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases).
+4.  **Install External Tools (IF RUNNING FROM SOURCE ONLY):**
+    *   **ExifTool:** Download & follow OS-specific instructions from [exiftool.org](https://exiftool.org/). Verify: `exiftool -ver` in terminal.
+    *   **Ghostscript:** Download & run installer from [ghostscript.com](https://www.ghostscript.com/releases/gsdnld.html). Ensure installation dir is in PATH. Verify: `gswin64c -version` (or similar) in terminal.
+    *   **FFmpeg:** Download build from [ffmpeg.org](https://ffmpeg.org/download.html). Extract & add the `bin` directory to PATH. Verify: `ffmpeg -version` in terminal.
+    *   **GTK3 Runtime (Windows):** Download & run installer from [GTK for Windows Runtime Installer](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases). (The `.exe` installer handles this step).
     *   (Or use MSYS2/Chocolatey).
 
 ## 6. ⚙️ Configuration Details
@@ -203,10 +195,12 @@ Stores settings automatically (usually in `Documents/RJAutoMetadata` on Windows)
 
 ## 9. ❓ Troubleshooting Common Issues
 
-*   **"Exiftool not found":** ExifTool not installed or not in PATH. 👉 Reinstall/check PATH.
-*   **Errors on `.ai`/`.eps`:** Ghostscript missing or not in PATH. 👉 Install/check PATH.
-*   **Errors on `.svg` (Windows):** GTK3 Runtime missing/misconfigured. 👉 Install GTK3.
-*   **Errors on `.mp4`/`.mkv`:** FFmpeg missing or not in PATH. 👉 Install/check PATH.
+*   **"Exiftool not found" / Errors on `.ai`/`.eps` / Errors on `.mp4`/`.mkv`:**
+    *   **Using Installer:** These tools should be bundled. Ensure the installation completed without errors and the `tools/` subfolder exists with content. Check the application log for specific errors during execution.
+    *   **Running from Source:** The respective tool (ExifTool, Ghostscript, FFmpeg) is likely not installed correctly or its location is not included in the system's PATH environment variable. 👉 Reinstall the tool or add it to your PATH.
+*   **Errors on `.svg` (Windows):**
+    *   **Using Installer:** The GTK3 Runtime installation might have failed or been skipped during setup. Try running the GTK3 installer found within the application's temporary setup files (if available) or download and install it manually.
+    *   **Running from Source:** GTK3 Runtime is missing or misconfigured. 👉 Install GTK3 Runtime.
 *   **API Errors (429, Auth):** Incorrect/inactive API key? Hitting rate limits? 👉 Check keys, increase `Delay`, reduce `Workers`, add more keys. Check internet.
 *   **Permission Errors:** Cannot write to Output Folder or config location? 👉 Choose different folder, check permissions.
 *   **Freezes/Crashes:** Review the GUI log carefully for any error messages. Since the terminal output is suppressed, the GUI log is the primary source of information. Ensure all dependencies (Python and external) are correctly installed. If the log provides no clues, consider system resource issues or try reducing the number of `Workers`.

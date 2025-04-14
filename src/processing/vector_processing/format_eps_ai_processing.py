@@ -18,97 +18,164 @@
 import os
 import time
 import subprocess
+import platform # Import platform for OS specific checks if needed
 from src.utils.logging import log_message
 from src.api.gemini_api import check_stop_event
+# Import the variable holding the discovered Ghostscript path - REMOVED
+# from src.utils.system_checks import GHOSTSCRIPT_PATH
+# Global import removed, path is passed as parameter
 
-def convert_eps_to_jpg(eps_path, output_jpg_path, stop_event=None):
+def convert_eps_to_jpg(eps_path, output_jpg_path, ghostscript_path, stop_event=None):
     """
-    Mengkonversi file EPS/AI ke JPG menggunakan Ghostscript.
-    
+    Mengkonversi file EPS/AI ke JPG menggunakan path Ghostscript yang ditemukan saat startup.
+
     Args:
         eps_path: Path file EPS/AI sumber
         output_jpg_path: Path file JPG tujuan
+        ghostscript_path: Full path to the Ghostscript executable
         stop_event: Event threading untuk menghentikan proses
-        
+
     Returns:
-        Tuple (success, error_message): 
+        Tuple (success, error_message):
             - success: Boolean yang menunjukkan keberhasilan konversi
             - error_message: String pesan error (None jika sukses)
     """
     filename = os.path.basename(eps_path)
-    # log_message(f"  Mencoba konversi EPS ke JPG menggunakan Ghostscript: {filename}")
-    
-    # Daftar perintah Ghostscript yang mungkin ada
-    gs_commands = ['gswin64c', 'gs']
+    log_message(f"Memulai konversi EPS/AI ke JPG: {filename}")
+
+    # --- Cek Path Ghostscript ---
+    if not ghostscript_path: # Check the parameter
+        error_message = "Error: Ghostscript executable path not found during application startup check."
+        log_message(f"  ✗ {error_message}")
+        return False, error_message
+
+    # --- Cek Stop Event Awal ---
+    if check_stop_event(stop_event, f"Konversi EPS/AI dibatalkan sebelum mulai: {filename}"):
+        return False, f"Konversi dibatalkan sebelum mulai: {filename}"
+
+    # --- Persiapan Perintah Ghostscript ---
+    command = [
+        ghostscript_path,           # Gunakan path dari parameter
+        "-sDEVICE=jpeg",
+        "-dJPEGQ=90",               # Kualitas JPEG (0-100)
+        "-r300",                    # Resolusi DPI
+        "-dBATCH",                  # Mode batch (keluar setelah selesai)
+        "-dNOPAUSE",                # Jangan menunggu antar halaman
+        "-dSAFER",                  # Mode aman (membatasi akses file)
+        "-dGraphicsAlphaBits=4",    # Penanganan alpha untuk grafis
+        "-dTextAlphaBits=4",        # Penanganan alpha untuk teks
+        # "-dHaveTransparency=true",  # Mungkin tidak diperlukan untuk output JPEG
+        # "-dBackgroundColor=16#FFFFFF", # Latar belakang putih (JPEG tidak mendukung transparansi)
+        f"-sOutputFile={output_jpg_path}", # File output
+        eps_path                    # File input
+    ]
+
     success = False
-    last_error = "Ghostscript command not found or failed."
-    
-    for gs_cmd in gs_commands:
-        if check_stop_event(stop_event, f"  Konversi EPS dibatalkan: {filename}"):
-            return False, f"Konversi dibatalkan: {filename}"
-        
-        command = [
-            gs_cmd,
-            "-sDEVICE=jpeg",
-            "-dJPEGQ=90",
-            "-r300",
-            "-dBATCH",
-            "-dNOPAUSE",
-            "-dSAFER",
-            f"-sOutputFile={output_jpg_path}",
-            eps_path
-        ]
-        
+    final_error_message = f"Unknown error during Ghostscript conversion for {filename}."
+    process = None # Initialize process variable
+
+    # --- Eksekusi Ghostscript ---
+    try:
+        log_message(f"  Menjalankan Ghostscript: {ghostscript_path} ...")
+        # Gunakan CREATE_NO_WINDOW hanya di Windows
+        creationflags = subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            creationflags=creationflags
+        )
+
+        # --- Loop Pemantauan Proses dengan Timeout dan Stop Event ---
+        start_time = time.time()
+        timeout_seconds = 180 # Timeout 3 menit per file (sesuaikan jika perlu)
+
+        while process.poll() is None:
+            # Cek stop event
+            if check_stop_event(stop_event, f"Menghentikan konversi Ghostscript: {filename}"):
+                log_message(f"  Stop event triggered, terminating Ghostscript process for {filename}")
+                try:
+                    process.terminate()
+                    process.wait(timeout=1) # Tunggu sebentar untuk terminate
+                except subprocess.TimeoutExpired:
+                    log_message(f"  Ghostscript tidak terminate, killing process for {filename}")
+                    process.kill()
+                except Exception as term_err:
+                    log_message(f"  Error saat terminasi Ghostscript for {filename}: {term_err}")
+                return False, f"Konversi Ghostscript dihentikan: {filename}"
+
+            # Cek timeout
+            if time.time() - start_time > timeout_seconds:
+                log_message(f"  Ghostscript process timed out (> {timeout_seconds}s) for {filename}, terminating.")
+                try:
+                    process.terminate()
+                    process.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    log_message(f"  Ghostscript tidak terminate setelah timeout, killing process for {filename}")
+                    process.kill()
+                except Exception as term_err:
+                    log_message(f"  Error saat terminasi Ghostscript setelah timeout for {filename}: {term_err}")
+                return False, f"Konversi Ghostscript timeout: {filename}"
+
+            time.sleep(0.1) # Hindari busy-waiting
+
+        # --- Proses Selesai, Ambil Output ---
         try:
-            # log_message(f"  Menjalankan: {' '.join(command)}")
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                creationflags=subprocess.CREATE_NO_WINDOW
-            )
-            
+            stdout, stderr = process.communicate(timeout=15) # Timeout untuk communicate
+        except subprocess.TimeoutExpired:
+            log_message(f"  Ghostscript communicate() timed out for {filename}. Killing process.")
+            process.kill()
+            # Coba ambil output lagi setelah kill
             try:
-                while process.poll() is None:
-                    if check_stop_event(stop_event, f"  Menghentikan konversi Ghostscript: {filename}"):
-                        process.terminate()
-                        time.sleep(0.5)
-                        if process.poll() is None: process.kill()
-                        return False, f"Konversi Ghostscript dihentikan: {filename}"
-                    time.sleep(0.1)
-                
                 stdout, stderr = process.communicate()
-                return_code = process.returncode
-            except Exception as comm_error:
-                 log_message(f"  Error saat berkomunikasi dengan proses Ghostscript: {comm_error}")
-                 return_code = process.poll() if process else -1 
-                 stderr = b""
-            
-            if return_code == 0:
-                if os.path.exists(output_jpg_path) and os.path.getsize(output_jpg_path) > 0:
-                    log_message(f"  Konversi EPS ke JPG berhasil dengan '{gs_cmd}': {os.path.basename(output_jpg_path)}")
-                    success = True
-                    break
-                else:
-                    last_error = f"Ghostscript ({gs_cmd}) selesai tapi file output tidak valid."
-                    log_message(f"  {last_error}")
+            except Exception as final_comm_err:
+                 log_message(f"  Error getting output even after kill for {filename}: {final_comm_err}")
+                 stdout, stderr = b"", b""
+        except Exception as comm_err:
+            log_message(f"  Error during Ghostscript communicate() for {filename}: {comm_err}")
+            stdout, stderr = b"", b"" # Asumsi tidak ada output
+
+        return_code = process.returncode
+
+        # --- Evaluasi Hasil ---
+        if return_code == 0:
+            # Periksa apakah file output ada dan tidak kosong
+            if os.path.exists(output_jpg_path) and os.path.getsize(output_jpg_path) > 100: # Cek ukuran > 100 bytes (arbitrary small size)
+                log_message(f"  ✓ Konversi EPS/AI ke JPG berhasil: {os.path.basename(output_jpg_path)}")
+                success = True
+                final_error_message = None # Berhasil, tidak ada error
             else:
-                error_output = stderr.decode('utf-8', errors='replace').strip()
-                last_error = f"Gagal konversi EPS dengan '{gs_cmd}' (exit code {return_code}): {error_output[:250]}..."
-                log_message(f"  {last_error}")
-        except FileNotFoundError:
-            last_error = f"Perintah '{gs_cmd}' tidak ditemukan. Mencoba alternatif..."
-            log_message(f"  {last_error}")
-            continue
-        except Exception as e:
-            last_error = f"Error tak terduga saat konversi EPS dengan '{gs_cmd}': {e}"
-            log_message(f"  {last_error}")
-            continue
-    
-    if not success:
-        if os.path.exists(output_jpg_path):
-            try: os.remove(output_jpg_path)
-            except Exception: pass
-        return False, f"Gagal mengkonversi EPS setelah mencoba semua perintah: {filename}. Error terakhir: {last_error}"
-    
-    return True, None
+                final_error_message = f"Ghostscript selesai (kode 0) tapi file output '{os.path.basename(output_jpg_path)}' tidak valid atau terlalu kecil."
+                log_message(f"  ✗ {final_error_message}")
+                if os.path.exists(output_jpg_path): # Hapus file output yang gagal
+                    try: os.remove(output_jpg_path)
+                    except Exception: pass
+        else:
+            # Decode stderr dengan aman
+            try:
+                error_output = stderr.decode(errors='replace').strip()
+            except Exception as decode_err:
+                error_output = f"(Tidak dapat decode stderr: {decode_err})"
+            final_error_message = f"Gagal konversi EPS/AI dengan Ghostscript (kode {return_code}): {error_output[:350]}{'...' if len(error_output) > 350 else ''}"
+            log_message(f"  ✗ {final_error_message}")
+
+    except FileNotFoundError:
+        # Seharusnya tidak terjadi jika GHOSTSCRIPT_PATH valid
+        final_error_message = f"Fatal Error: Ghostscript executable not found at the expected path: {ghostscript_path}"
+        log_message(f"  ✗ {final_error_message}")
+    except Exception as e:
+        final_error_message = f"Error tak terduga saat menjalankan Ghostscript process: {e}"
+        log_message(f"  ✗ {final_error_message}")
+        if process and process.poll() is None: # Jika proses masih berjalan saat error lain terjadi
+             try: process.kill()
+             except Exception: pass
+
+    # --- Pembersihan File Output Gagal ---
+    if not success and os.path.exists(output_jpg_path):
+        try:
+            os.remove(output_jpg_path)
+            log_message(f"  Membersihkan file output gagal: {os.path.basename(output_jpg_path)}")
+        except Exception as del_err:
+            log_message(f"  Gagal membersihkan file output {os.path.basename(output_jpg_path)}: {del_err}")
+
+    return success, final_error_message

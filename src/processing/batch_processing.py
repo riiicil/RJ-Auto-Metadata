@@ -34,7 +34,7 @@ from src.processing.video_processing import process_video
 from src.api.gemini_api import check_stop_event, is_stop_requested
 from src.metadata.csv_exporter import write_to_platform_csvs
 
-def process_vector_file(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True):
+def process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop_event, auto_kategori_enabled=True):
     """
     Memproses file vektor (EPS, AI, SVG).
     
@@ -42,9 +42,9 @@ def process_vector_file(input_path, output_dir, api_keys, stop_event, auto_kateg
         input_path: Path file sumber
         output_dir: Direktori output
         api_keys: List API key Gemini
+        ghostscript_path: Full path to the Ghostscript executable
         stop_event: Event threading untuk menghentikan proses
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
-        
     Returns:
         Tuple (status, metadata, output_path):
             - status: String status pemrosesan
@@ -92,7 +92,11 @@ def process_vector_file(input_path, output_dir, api_keys, stop_event, auto_kateg
             return "stopped", None, None
         
         log_message(f"  Memulai konversi {ext_lower.upper()} ke {target_format}...")
-        conversion_success, error_msg = conversion_func(input_path, temp_raster_path, stop_event)
+        # Pass ghostscript_path only if it's needed (i.e., for convert_eps_to_jpg)
+        if conversion_func == convert_eps_to_jpg:
+             conversion_success, error_msg = conversion_func(input_path, temp_raster_path, ghostscript_path, stop_event)
+        else: # For SVG conversion or others that might be added
+             conversion_success, error_msg = conversion_func(input_path, temp_raster_path, stop_event)
         
         if not conversion_success:
             log_message(f"  Gagal konversi {ext_lower.upper()}: {error_msg}")
@@ -154,7 +158,7 @@ def process_vector_file(input_path, output_dir, api_keys, stop_event, auto_kateg
         log_message(f"  Gagal menyalin {filename}: {e}")
         return "failed_copy", metadata, None
 
-def process_image(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True):
+def process_image(input_path, output_dir, api_keys, ghostscript_path, stop_event, auto_kategori_enabled=True):
     """
     Memproses file gambar.
     
@@ -162,9 +166,9 @@ def process_image(input_path, output_dir, api_keys, stop_event, auto_kategori_en
         input_path: Path file sumber
         output_dir: Direktori output
         api_keys: List API key Gemini
+        ghostscript_path: Full path to the Ghostscript executable (needed for vector processing)
         stop_event: Event threading untuk menghentikan proses
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
-        
     Returns:
         Tuple (status, metadata, output_path):
             - status: String status pemrosesan
@@ -189,14 +193,14 @@ def process_image(input_path, output_dir, api_keys, stop_event, auto_kategori_en
     if ext_lower == '.png':
         return process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled)
     elif ext_lower in ['.eps', '.ai', '.svg']:
-        return process_vector_file(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled)
+        return process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop_event, auto_kategori_enabled)
     elif ext_lower in ['.jpg', '.jpeg']:
         return process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled)
     else:
         log_message(f"  Format file tidak didukung: {ext_lower}")
         return "failed_format", None, None
 
-def process_single_file(input_path, output_dir, api_keys_list, rename_enabled, auto_kategori_enabled, auto_foldering_enabled):
+def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path, rename_enabled, auto_kategori_enabled, auto_foldering_enabled):
     """
     Memproses satu file, menentukan tipe dan memanggil fungsi pemrosesan yang sesuai.
     
@@ -204,10 +208,10 @@ def process_single_file(input_path, output_dir, api_keys_list, rename_enabled, a
         input_path: Path file sumber
         output_dir: Direktori output utama
         api_keys_list: List API key Gemini
+        ghostscript_path: Full path to the Ghostscript executable
         rename_enabled: Flag untuk mengaktifkan rename otomatis
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
         auto_foldering_enabled: Flag untuk menempatkan file dalam subfolder berdasarkan tipe
-        
     Returns:
         Dictionary dengan informasi hasil pemrosesan
     """
@@ -276,7 +280,7 @@ def process_single_file(input_path, output_dir, api_keys_list, rename_enabled, a
             )
         else:
             status, processed_metadata, initial_output_path = process_image(
-                input_path, target_output_dir, api_keys_list, stop_event, auto_kategori_enabled
+                input_path, target_output_dir, api_keys_list, ghostscript_path, stop_event, auto_kategori_enabled
             )
         
         if stop_event.is_set() or is_stop_requested():
@@ -378,7 +382,7 @@ def process_single_file(input_path, output_dir, api_keys_list, rename_enabled, a
         "new_filename": new_filename
     }
 
-def batch_process_files(input_dir, output_dir, api_keys, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled, progress_callback=None, stop_event=None):
+def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled, progress_callback=None, stop_event=None):
     """
     Memproses batch file dari direktori input.
     
@@ -386,6 +390,7 @@ def batch_process_files(input_dir, output_dir, api_keys, rename_enabled, delay_s
         input_dir: Direktori sumber file
         output_dir: Direktori output untuk file yang diproses
         api_keys: List API key Gemini
+        ghostscript_path: Full path to the Ghostscript executable
         rename_enabled: Flag untuk mengaktifkan rename otomatis
         delay_seconds: Delay dalam detik antara batch
         num_workers: Jumlah worker paralel
@@ -523,6 +528,7 @@ def batch_process_files(input_dir, output_dir, api_keys, rename_enabled, delay_s
                             input_path,
                             output_dir,
                             api_keys,
+                            ghostscript_path, # Pass the path here
                             rename_enabled,
                             auto_kategori_enabled,
                             auto_foldering_enabled

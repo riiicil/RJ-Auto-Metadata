@@ -31,8 +31,8 @@ This version represents a significant overhaul and feature expansion from v1.
     - Added `TokenBucket` rate limiting for keys and models. ⏳
     - Improved API call retry logic.
 - **Expanded File Processing (`src/processing/`):**
-    - Added support for vectors (AI, EPS, SVG) via external tools.
-    - Added support for videos (MP4, MKV) via OpenCV/FFmpeg frame extraction. 📹
+    - Added support for vectors (AI, EPS, SVG) via Ghostscript.
+    - Added support for videos (MP4, MKV, AVI, MOV, MPEG, etc) via OpenCV/FFmpeg frame extraction. 📹
 - **Platform-Specific CSV Export (`src/metadata/`):**
     - Implemented category mapping for Adobe Stock & Shutterstock. 📊
     - Generates separate, formatted CSV files.
@@ -41,6 +41,7 @@ This version represents a significant overhaul and feature expansion from v1.
 - **Documentation:** Added `README.md`, `quick_guide.txt`, and this `CHANGELOG.md`. 📚
 - **Configuration:** Persistent settings saved to `config.json`. 💾
 - **Licensing Info:** Added main `LICENSE` (AGPLv3) and dependency licenses in `licenses/`. 📜
+- **Console Toggle (Windows Only):** Added UI switch and functionality to show/hide the console window. 👁️‍🗨️
 - **Basic `.gitignore`**.
 
 ### Changed 🔄
@@ -48,7 +49,12 @@ This version represents a significant overhaul and feature expansion from v1.
 - **Main Entry Point:** Shifted to `main.py` launching `MetadataApp`.
 - **Logging:** Integrated with GUI text area.
 - **Stop Handling:** Refined process interruption logic.
+- **UI Switches:** Removed text labels from API Key/Console switches, added tooltips. 🖱️
 - **`.gitignore`:** Updated (later simplified).
+
+### Fixed 🐞
+- **Ghostscript Path Resolution:** Corrected issue where AI/EPS conversion failed in packaged builds due to worker threads not accessing the correct Ghostscript path. Implemented parameter passing for the path. 👻
+- **Logging:** Cleaned up verbose stdout debug logging from the initial Ghostscript check. 📜
 
 ### Removed ❌
 - Removed hardcoded application expiry date check from v1.

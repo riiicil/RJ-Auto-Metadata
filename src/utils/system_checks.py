@@ -114,15 +114,38 @@ def check_ghostscript():
 
     if gs_executable:
         GHOSTSCRIPT_PATH = gs_executable
-        # Try using '-h' which might be more robust than '--version' if dependencies are missing
-        if _run_command([GHOSTSCRIPT_PATH, "-h"]):
-             log_message(f"Ghostscript found at {gs_executable} and responded to '-h'.")
-             return True
-        else:
-             # Found but command failed, clear the path
-             GHOSTSCRIPT_PATH = None
-             log_message(f"Ghostscript found at {gs_executable} but version check failed.")
-             return False
+        log_message(f"Attempting to run: {GHOSTSCRIPT_PATH} -h")
+        try:
+            process = subprocess.run(
+                [GHOSTSCRIPT_PATH, "-h"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+                creationflags=subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0
+            )
+            stdout_output = process.stdout.strip()
+            stderr_output = process.stderr.strip()
+            log_message(f"Ghostscript check ('{GHOSTSCRIPT_PATH} -h') returned code: {process.returncode}")
+            # Remove detailed stdout logging, it's too verbose for normal operation
+            # if stdout_output:
+            #    log_message(f"Ghostscript check stdout: {stdout_output}")
+            if stderr_output:
+                log_message(f"Ghostscript check stderr: {stderr_output}")
+
+            # Check if return code is 0 or if output indicates success
+            # Some GS versions might return non-zero for -h but still print help
+            if process.returncode == 0 or "ghostscript" in stdout_output.lower() or "ghostscript" in stderr_output.lower():
+                 log_message(f"Ghostscript found at {gs_executable} and seems operational based on '-h' output.")
+                 return True
+            else:
+                 log_message(f"Ghostscript found at {gs_executable} but check command failed or output was unexpected (return code {process.returncode}). Might indicate missing dependencies.")
+                 GHOSTSCRIPT_PATH = None # Clear path as it's unusable
+                 return False
+        except Exception as e:
+            log_message(f"Error running Ghostscript check command {GHOSTSCRIPT_PATH} -h: {e}")
+            GHOSTSCRIPT_PATH = None # Clear path as it's unusable
+            return False
     else:
         log_message("Could not find Ghostscript executable in bundled path or system PATH.")
         return False
@@ -200,3 +223,38 @@ def check_gtk_dependencies():
          log_message(f"An error occurred during cairocffi import check: {e}")
          log_message("This might indicate missing GTK3 runtime libraries (DLLs/SOs), needed for SVG processing.")
          return False
+
+# --- Console Visibility (Windows Only) ---
+
+def set_console_visibility(show):
+    """Shows or hides the console window associated with the process."""
+    if platform.system() != "Windows":
+        log_message("Console visibility control is only available on Windows.", "warning")
+        return # Only works on Windows
+
+    try:
+        import ctypes
+        # Constants for ShowWindow
+        SW_HIDE = 0
+        SW_SHOW = 5 # Or SW_SHOWNORMAL = 1
+
+        # Get console window handle
+        console_wnd = ctypes.windll.kernel32.GetConsoleWindow()
+        if console_wnd == 0:
+            log_message("Could not get console window handle (maybe already hidden or no console?).", "warning")
+            return # No console window found
+
+        # Show or hide
+        if show:
+            ctypes.windll.user32.ShowWindow(console_wnd, SW_SHOW)
+            log_message("Showing console window.", "info")
+        else:
+            ctypes.windll.user32.ShowWindow(console_wnd, SW_HIDE)
+            log_message("Hiding console window.", "info")
+
+    except ImportError:
+         log_message("Could not import ctypes. Console visibility control unavailable.", "error")
+    except AttributeError:
+         log_message("Could not find necessary Windows API functions via ctypes.", "error")
+    except Exception as e:
+        log_message(f"Error controlling console visibility: {e}", "error")

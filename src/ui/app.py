@@ -42,11 +42,14 @@ from src.processing.batch_processing import batch_process_files
 from src.ui.widgets import ToolTip
 from src.ui.dialogs import CompletionMessageManager
 # Import system checks
-from src.utils.system_checks import check_ghostscript, check_ffmpeg, check_gtk_dependencies
+from src.utils.system_checks import (
+    check_ghostscript, check_ffmpeg, check_gtk_dependencies,
+    set_console_visibility # Import the new function
+)
 from src.metadata.exif_writer import check_exiftool_exists # Keep this import for the check
 
 # Konstanta aplikasi
-APP_VERSION = "1.0"
+APP_VERSION = "2.0.0"
 CONFIG_FILE = "config.json"
 
 class MetadataApp(ctk.CTk):
@@ -145,8 +148,9 @@ class MetadataApp(ctk.CTk):
         self.workers_var = tk.StringVar(value="1")
         self._actual_api_keys = [] # Store the real keys internally
         self.show_api_keys_var = tk.BooleanVar(value=False) # Variable for the toggle checkbox
+        self.console_visible_var = tk.BooleanVar(value=True) # Variable for console visibility toggle
         self.progress_text_var = tk.StringVar(value="Proses: Siap memulai")
-        
+
         # Counters
         self.processed_count = 0
         self.failed_count = 0
@@ -398,15 +402,16 @@ Semakin banyak API key, semakin cepat proses batch.
         # --- Show/Hide Switch ---
         self.show_api_keys_switch = ctk.CTkSwitch(
             api_header_frame,
-            text="Tampilkan Key",
+            text="", # Ensure text is empty
             variable=self.show_api_keys_var,
             command=self._toggle_api_key_visibility,
-            font=self.font_small,
+            font=self.font_small, # Font might not be needed without text, but keep for consistency
             switch_width=35, # Adjust width if needed
             switch_height=18 # Adjust height if needed
         )
         self.show_api_keys_switch.pack(side=tk.LEFT, padx=(5, 0)) # Pack switch next to header
-        
+        ToolTip(self.show_api_keys_switch, "Tampilkan/Sembunyikan API Key") # Add tooltip directly to switch
+
         self.api_textbox = ctk.CTkTextbox(api_frame, height=105, corner_radius=5, wrap=tk.WORD, font=self.font_normal)
         self.api_textbox.grid(row=1, column=0, padx=(10, 5), pady=(0, 10), sticky="nsew")
         # Bind key release to sync internal list when keys are visible and user types
@@ -535,17 +540,50 @@ Konfigurasi perilaku aplikasi:
         self.log_text._textbox.tag_configure("info", foreground=info_color[1 if theme_mode == "dark" else 0])
         self.log_text._textbox.tag_configure("cooldown", foreground=cooldown_color[1 if theme_mode == "dark" else 0])
         self.log_text._textbox.tag_configure("bold", font=bold_font)
-    
+
     def _create_watermark(self, parent):
-        """Membuat watermark di bagian bawah aplikasi."""
-        watermark_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        watermark_frame.grid(row=4, column=0, padx=5, pady=(0, 5), sticky="ew")
-        watermark_frame.grid_columnconfigure(0, weight=1)
-        watermark_frame.grid_columnconfigure(1, weight=1)
-        
-        watermark_label = ctk.CTkLabel(watermark_frame, text="© Riiicil 2025 - Ver 2.0", font=ctk.CTkFont(size=10), text_color=("gray50", "gray70"))
+        """Membuat watermark dan console toggle di bagian bawah aplikasi."""
+        bottom_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        bottom_frame.grid(row=4, column=0, padx=5, pady=(0, 5), sticky="ew")
+        bottom_frame.grid_columnconfigure(0, weight=1) # Console toggle area
+        bottom_frame.grid_columnconfigure(1, weight=1) # Watermark area
+
+        # Console Toggle Switch (only add if on Windows)
+        if platform.system() == "Windows":
+            self.console_toggle_switch = ctk.CTkSwitch(
+                bottom_frame,
+                text="", # Text removed
+                variable=self.console_visible_var,
+                command=self._toggle_console_visibility,
+                font=self.font_small # Keep font for size consistency maybe? Or remove if not needed.
+            )
+            self.console_toggle_switch.grid(row=0, column=0, sticky="w", padx=(10, 5))
+            ToolTip(self.console_toggle_switch, "Tampilkan/Sembunyikan Jendela Konsol") # Add tooltip
+            # Remove call to update text, as it's no longer needed
+            # self._update_console_toggle_text()
+
+        # Watermark
+        watermark_label = ctk.CTkLabel(bottom_frame, text="© Riiicil 2025 - Ver 2.0.0", font=ctk.CTkFont(size=10), text_color=("gray50", "gray70"))
         watermark_label.grid(row=0, column=1, sticky="e", padx=(5, 10))
-    
+
+    def _toggle_console_visibility(self):
+        """Callback function for the console visibility switch."""
+        if platform.system() == "Windows":
+            show = self.console_visible_var.get()
+            set_console_visibility(show)
+            self._update_console_toggle_text()
+            # Save the setting immediately
+            self._save_settings()
+        else:
+             # Should not happen as switch is not created, but good practice
+             log_message("Console toggle attempted on non-Windows system.", "warning")
+
+    def _update_console_toggle_text(self):
+         """Updates the text of the console toggle switch."""
+         if platform.system() == "Windows" and hasattr(self, 'console_toggle_switch'):
+             # Text is no longer set here, managed by initial creation and tooltip
+             pass # Placeholder if needed, or simply remove the if/else block content
+
     def _create_header_with_help(self, parent, text, tooltip_text, font=None):
         """Membuat header dengan icon bantuan."""
         header_frame = ctk.CTkFrame(parent, fg_color="transparent")
@@ -793,12 +831,12 @@ Konfigurasi perilaku aplikasi:
     def _toggle_api_key_visibility(self):
         """Toggle visibility of API keys in the textbox."""
         # Update the display based on the new checkbox state
-        self._update_api_textbox() 
-        # Update the checkbox text
-        if self.show_api_keys_var.get():
-            self.show_api_keys_switch.configure(text="Sembunyikan Key") # Updated text
-        else:
-            self.show_api_keys_switch.configure(text="Tampilkan Key")
+        self._update_api_textbox()
+        # No need to update switch text anymore
+        # if self.show_api_keys_var.get():
+        #     self.show_api_keys_switch.configure(text="Sembunyikan Key")
+        # else:
+        #     self.show_api_keys_switch.configure(text="Tampilkan Key")
 
 
     def _update_api_textbox(self):
@@ -917,7 +955,9 @@ Konfigurasi perilaku aplikasi:
                         self._actual_api_keys = settings.get("api_keys", [])
                         # Load API key visibility state (default to False/hidden if not found)
                         self.show_api_keys_var.set(settings.get("show_api_keys", False))
-                        
+                        # Load console visibility state (default to True/visible if not found)
+                        self.console_visible_var.set(settings.get("console_visible", True))
+
                         # Load tema
                         loaded_theme = settings.get("theme", "dark")
                         self.theme_var.set(loaded_theme)
@@ -932,8 +972,17 @@ Konfigurasi perilaku aplikasi:
                               self._log("ID Instalasi belum ada di config.", "info")
                         
                         # Update the textbox display after loading internal keys
-                        self._update_api_textbox() 
+                        self._update_api_textbox()
                         self._log("Pengaturan lain berhasil dimuat dari konfigurasi", "info")
+
+                        # Set initial console visibility (Windows only)
+                        if platform.system() == "Windows":
+                             initial_console_state = self.console_visible_var.get()
+                             log_message(f"Setting initial console visibility to: {initial_console_state}", "info")
+                             set_console_visibility(initial_console_state)
+                             # Update switch text after setting initial state
+                             self.after(50, self._update_console_toggle_text) # Use 'after' to ensure switch exists
+
                 except Exception as inner_e:
                     self._log(f"Error saat membaca file config: {inner_e}", "error")
             else:
@@ -965,6 +1014,7 @@ Konfigurasi perilaku aplikasi:
             "auto_foldering": self.auto_foldering_var.get(),
             "api_keys": self._actual_api_keys, # Save the internal list
             "show_api_keys": self.show_api_keys_var.get(), # Save API key visibility state
+            "console_visible": self.console_visible_var.get(), # Save console visibility state
             "theme": self.theme_var.get(),
             "last_saved": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "analytics_enabled": self.analytics_enabled_var.get(),
@@ -1221,12 +1271,17 @@ Konfigurasi perilaku aplikasi:
     
     def _run_processing(self, input_dir, output_dir, api_keys, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled):
         """Thread worker untuk pemrosesan batch."""
+        # Import path yang ditemukan saat thread dimulai
+        from src.utils.system_checks import GHOSTSCRIPT_PATH as gs_path_found
+        log_message(f"Ghostscript path passed to worker thread: {gs_path_found}", "info")
+
         try:
-            # Lakukan pemrosesan batch
+            # Lakukan pemrosesan batch, teruskan path GS
             result = batch_process_files(
                 input_dir=input_dir,
                 output_dir=output_dir,
                 api_keys=api_keys,
+                ghostscript_path=gs_path_found, # Teruskan path GS
                 rename_enabled=rename_enabled,
                 delay_seconds=delay_seconds,
                 num_workers=num_workers,
