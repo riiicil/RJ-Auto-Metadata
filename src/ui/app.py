@@ -1309,19 +1309,32 @@ Konfigurasi perilaku aplikasi:
                     "success_rate": (self.processed_count / total_files) * 100 if total_files > 0 else 0
                 })
             
-            # Menentukan pesan akhir
-            if self.stop_event.is_set():
+            # Menentukan pesan akhir berdasarkan hasil
+            final_message = "Terjadi error tidak dikenal." # Default message
+
+            if result.get("status") == "no_files":
+                final_message = "Tidak ada file yang dapat diproses ditemukan di folder input."
+                self.progress_text_var.set("Proses: Tidak ada file")
+                # Tampilkan messagebox juga untuk kejelasan
+                self.after(100, lambda msg=final_message: tk.messagebox.showinfo("Info Proses", msg))
+                # Tidak perlu tampilkan completion manager jika tidak ada file
+                self.after(200, self._reset_ui_after_processing)
+            elif self.stop_event.is_set():
                 final_message = "Pemrosesan dihentikan oleh pengguna."
                 self.progress_text_var.set("Proses: Dihentikan")
-            else:
+                # Tampilkan completion manager meskipun dihentikan
+                self.after(100, lambda: self.completion_manager.show_completion_message())
+                self.after(200, self._reset_ui_after_processing)
+            else: # Proses selesai secara normal (meskipun mungkin 0 file berhasil)
                 final_message = "Pemrosesan selesai!"
                 final_completed = self.processed_count + self.failed_count + self.skipped_count + self.stopped_count
-                total_files = result.get("total_files", final_completed)
+                total_files = result.get("total_files", final_completed) # Ambil total dari hasil
                 self.progress_text_var.set(f"Proses: {final_completed}/{total_files} file selesai.")
-            
-            # Tampilkan pesan penyelesaian dan reset UI
-            self.after(100, lambda: self.completion_manager.show_completion_message())
-            self.after(200, self._reset_ui_after_processing)
+                # Tampilkan completion manager
+                self.after(100, lambda: self.completion_manager.show_completion_message())
+                self.after(200, self._reset_ui_after_processing)
+
+            # Catatan: Logika pesan akhir bisa disesuaikan lagi jika perlu
             
         except Exception as e:
             import traceback

@@ -439,10 +439,12 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
         if total_files == 0:
             log_message("Tidak ada file baru/valid yang dapat diproses di folder input.", "warning")
             return {
+                "status": "no_files", # Tambahkan status ini
                 "processed_count": 0,
                 "failed_count": 0,
                 "skipped_count": 0,
-                "stopped_count": 0
+                "stopped_count": 0,
+                "total_files": 0 # Sertakan total_files juga
             }
         
         log_message(f"Ditemukan {total_files} file untuk diproses", "success")

@@ -244,7 +244,7 @@ def set_console_visibility(show):
             log_message("Could not get console window handle (maybe already hidden or no console?).", "warning")
             return # No console window found
 
-        # Show or hide
+        # Show or hide using ShowWindow only
         if show:
             ctypes.windll.user32.ShowWindow(console_wnd, SW_SHOW)
             log_message("Showing console window.", "info")

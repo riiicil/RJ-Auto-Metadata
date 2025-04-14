@@ -54,8 +54,8 @@ RJ Auto Metadata is a powerful desktop application built with Python and CustomT
 *   **📈 Optional Usage Analytics:**
    *   Can send anonymous data (like OS version, event counts, success rates) using Google Analytics Measurement Protocol to help the developer improve the application (`src/utils/analytics.py`). Associated with a unique, anonymous `installation_id`. Can be implicitly disabled by not having Measurement ID/API Secret configured at build time (or potentially via a future setting).
 *   **👁️‍🗨️ Console Visibility Toggle (Windows Only):**
-   *   Provides a switch in the UI to show or hide the underlying console window, useful for monitoring detailed logs or troubleshooting in the packaged application (`src/utils/system_checks.py`, `src/ui/app.py`). Visibility state is saved in the configuration.
-
+   *   Provides a switch in the UI to **minimize/restore** the underlying console window (`RJ Auto Metadata.exe`). This is useful for temporarily hiding the console while keeping detailed logs accessible. Visibility state is saved in the configuration.
+   *   **Alternative No-Console Executable:** For users who prefer **no console window at all**, a second executable (`RJ Auto Metadata No Console.exe`) is included in the installation directory (e.g., `C:\Program Files (x86)\RJ Auto Metadata`). Running this file directly will launch the application without an initial console window.
 ## 3. 🔄 Workflow Overview
 
 The application follows these general steps during processing:
@@ -119,13 +119,27 @@ The application relies on several external command-line tools for full functiona
 
 ## 5. 🛠️ Installation Guide
 
+There are two main ways to install and run RJ Auto Metadata: using the provided installer or running directly from the source code.
+
+### 5.1. Using the Installer (.exe) (Recommended for most users)
+
+This is the easiest way to get started on Windows.
+
+1.  **Download Installer:** Go to the [Releases page](https://github.com/riiicil/RJ-Auto-Metadata-v2.0.0/releases) on GitHub. Download the `setup.exe` file from the latest release assets.
+2.  **Run Installer:** Double-click the downloaded `setup.exe`.
+3.  **Follow Prompts:** Follow the on-screen instructions provided by the installer. It will guide you through the process, including installing necessary components like the GTK3 Runtime (required for SVG files). Accept the prompts to install these components when asked.
+4.  **Launch:** Once installation is complete, you can launch RJ Auto Metadata from the Start Menu shortcut or the optional desktop icon.
+
+### 5.2. Running from Source Code (For developers or advanced users)
+Follow these steps if you want to run the application directly using Python:
+
 1.  **Clone Repository (Optional):**
     ```bash
-    git clone https://github.com/riiicil/RJ-Auto-Metadata-v.2.0.0.git
+    git clone https://github.com/riiicil/RJ-Auto-Metadata-v2.0.git
     cd RJ_Auto_metadata
     ```
-    (Or download & extract ZIP)
-2.  **Setup Python Environment (Recommended):**
+    (Or download & extract the source code ZIP from the repository page).
+2.  **Setup Python Environment (Recommended):** Create and activate a virtual environment.
     ```bash
     python -m venv venv
     # Windows: .\venv\Scripts\activate
@@ -135,12 +149,11 @@ The application relies on several external command-line tools for full functiona
     ```bash
     pip install -r requirements.txt
     ```
-4.  **Install External Tools (IF RUNNING FROM SOURCE ONLY):**
-    *   **ExifTool:** Download & follow OS-specific instructions from [exiftool.org](https://exiftool.org/). Verify: `exiftool -ver` in terminal.
-    *   **Ghostscript:** Download & run installer from [ghostscript.com](https://www.ghostscript.com/releases/gsdnld.html). Ensure installation dir is in PATH. Verify: `gswin64c -version` (or similar) in terminal.
-    *   **FFmpeg:** Download build from [ffmpeg.org](https://ffmpeg.org/download.html). Extract & add the `bin` directory to PATH. Verify: `ffmpeg -version` in terminal.
-    *   **GTK3 Runtime (Windows):** Download & run installer from [GTK for Windows Runtime Installer](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases). (The `.exe` installer handles this step).
-    *   (Or use MSYS2/Chocolatey).
+4.  **Install ALL External Tools Manually:** You **must** install ExifTool, Ghostscript, FFmpeg, and (on Windows) GTK3 Runtime yourself and ensure they are correctly added to your system's PATH. Refer to the download links in section [4.2. External Tools & Libraries Dependencies](#42-external-tools--libraries-dependencies). Verify each tool is working via your terminal (e.g., `exiftool -ver`, `gswin64c -version`, `ffmpeg -version`).
+5.  **Run the Application:**
+    ```bash
+    python main.py
+    ```
 
 ## 6. ⚙️ Configuration Details
 
@@ -174,7 +187,10 @@ Stores settings automatically (usually in `Documents/RJAutoMetadata` on Windows)
 
 ## 7. ▶️ Usage Guide
 
-1.  **Launch:** Run `python main.py` or the executable.
+1.  **Launch:**
+    *   Run `python main.py` (if running from source).
+    *   Use the desktop/start menu shortcut, which points to `RJ Auto Metadata.exe` (includes a console window that can be minimized/restored via the UI toggle).
+    *   *Optional:* If you prefer no console window, navigate to the installation directory and run `RJ Auto Metadata No Console.exe` directly.
 2.  **Set Folders:** Use "Browse" for **Input** & **Output** directories (must be different!).
 3.  **Enter API Keys:** Paste keys (one per line) or use "Load". Manage with Save/Delete/Show-Hide.
 4.  **Adjust Settings (Optional):** Tune `Workers`, `Delay`, Toggles (`Rename?`, etc.), `Theme`.
