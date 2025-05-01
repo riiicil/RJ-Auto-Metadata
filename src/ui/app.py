@@ -49,7 +49,7 @@ from src.utils.system_checks import (
 from src.metadata.exif_writer import check_exiftool_exists # Keep this import for the check
 
 # Konstanta aplikasi
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.0.1"
 CONFIG_FILE = "config.json"
 
 class MetadataApp(ctk.CTk):
@@ -563,7 +563,7 @@ Konfigurasi perilaku aplikasi:
             # self._update_console_toggle_text()
 
         # Watermark
-        watermark_label = ctk.CTkLabel(bottom_frame, text="© Riiicil 2025 - Ver 2.0.0", font=ctk.CTkFont(size=10), text_color=("gray50", "gray70"))
+        watermark_label = ctk.CTkLabel(bottom_frame, text="© Riiicil 2025 - Ver 2.0.1", font=ctk.CTkFont(size=10), text_color=("gray50", "gray70"))
         watermark_label.grid(row=0, column=1, sticky="e", padx=(5, 10))
 
     def _toggle_console_visibility(self):

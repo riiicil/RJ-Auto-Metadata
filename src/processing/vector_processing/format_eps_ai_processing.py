@@ -57,8 +57,8 @@ def convert_eps_to_jpg(eps_path, output_jpg_path, ghostscript_path, stop_event=N
     command = [
         ghostscript_path,           # Gunakan path dari parameter
         "-sDEVICE=jpeg",
+        "-dEPSCrop",                # Use EPS BoundingBox for cropping
         "-dJPEGQ=90",               # Kualitas JPEG (0-100)
-        "-r300",                    # Resolusi DPI
         "-dBATCH",                  # Mode batch (keluar setelah selesai)
         "-dNOPAUSE",                # Jangan menunggu antar halaman
         "-dSAFER",                  # Mode aman (membatasi akses file)
