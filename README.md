@@ -258,7 +258,7 @@ You can find me and discuss this project (or others) at: https://s.id/rj_auto_me
 
 ## 14. Support the Project
 
-If you find this application helpful and would like to support its continued development, you can do so via the QR code below. Thank you for your support!
+If you find this application helpful and would like to support its continued development, you can do so via the QR code below. Thanks!
 
 ![Support QR Code](assets/qr.jpg)
 
