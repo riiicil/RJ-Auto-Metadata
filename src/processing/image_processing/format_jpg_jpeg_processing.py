@@ -139,12 +139,35 @@ def process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori
         return "stopped", metadata, None
     
     # Tulis metadata EXIF
-    exif_success = write_exif_with_exiftool(input_path, initial_output_path, metadata, stop_event)
+    proceed, exif_status = write_exif_with_exiftool(input_path, initial_output_path, metadata, stop_event)
     
-    if not exif_success:
-        log_message(f"  Gagal menulis EXIF untuk {filename}")
-        try: os.remove(initial_output_path)
-        except Exception: pass
-        return "failed_exif", metadata, None
-    
-    return "processed_exif", metadata, initial_output_path
+    if not proceed:
+        # Handle critical failures during EXIF write attempt (e.g., stopped, copy_failed)
+        log_message(f"  Proses dihentikan atau gagal kritis saat mencoba menulis EXIF untuk {filename} (Status: {exif_status})")
+        # Attempt to clean up the copied output file if it exists and the failure wasn't a copy failure itself
+        if exif_status != "copy_failed" and os.path.exists(initial_output_path):
+             try: os.remove(initial_output_path)
+             except Exception: pass
+        # Return a general failure status or the specific one if needed downstream
+        return f"failed_{exif_status}", metadata, None 
+
+    # If proceed is True, check the specific EXIF status
+    if exif_status == "exif_ok":
+        # EXIF written successfully
+        return "processed_exif", metadata, initial_output_path
+    elif exif_status == "exif_failed":
+        # EXIF write failed, but we are proceeding
+        log_message(f"  Warning: Gagal menulis EXIF untuk {filename}, tapi proses dilanjutkan.", "warning")
+        # Return a status indicating processing is done, but EXIF failed
+        return "processed_exif_failed", metadata, initial_output_path 
+    elif exif_status == "no_metadata":
+        # No metadata was provided to write
+        return "processed_no_exif", metadata, initial_output_path # Similar to vector/png
+    elif exif_status == "exiftool_not_found":
+         log_message(f"  Error: Exiftool tidak ditemukan saat mencoba menulis EXIF untuk {filename}.", "error")
+         # Proceeding, but indicate the tool was missing
+         return "processed_exif_failed", metadata, initial_output_path # Treat as EXIF failure for simplicity downstream
+    else:
+         # Handle any other unexpected status from exif_writer
+         log_message(f"  Status EXIF tidak dikenal '{exif_status}' untuk {filename}", "warning")
+         return "processed_unknown_exif_status", metadata, initial_output_path

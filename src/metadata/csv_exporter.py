@@ -21,7 +21,7 @@ from src.utils.file_utils import sanitize_csv_field, write_to_csv
 from src.metadata.categories.for_adobestock import map_to_adobe_stock_category
 from src.metadata.categories.for_shutterstock import map_to_shutterstock_category
 
-def write_to_platform_csvs(csv_dir, filename, title, description, keywords, auto_kategori_enabled=True):
+def write_to_platform_csvs(csv_dir, filename, title, description, keywords, auto_kategori_enabled=True, is_vector=False):
     """
     Menulis metadata ke file CSV untuk AdobeStock dan ShutterStock.
     
@@ -32,6 +32,7 @@ def write_to_platform_csvs(csv_dir, filename, title, description, keywords, auto
         description: Deskripsi metadata
         keywords: List keyword/tag
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
+        is_vector: Boolean, True jika file asli adalah vektor (eps, ai, svg)
         
     Returns:
         Boolean: True jika berhasil, False jika gagal
@@ -73,7 +74,9 @@ def write_to_platform_csvs(csv_dir, filename, title, description, keywords, auto
         # Tulis data ke CSV ShutterStock
         ss_csv_path = os.path.join(csv_dir, "shutterstock_export.csv")
         ss_header = ["Filename", "Description", "Keywords", "Categories", "Editorial", "Mature content", "illustration"]
-        ss_data_row = [safe_filename, safe_description or safe_title, ss_keywords, ss_category, "no", "", ""]
+        # Set illustration to "yes" if is_vector is True, otherwise empty string
+        illustration_value = "yes" if is_vector else ""
+        ss_data_row = [safe_filename, safe_description or safe_title, ss_keywords, ss_category, "no", "", illustration_value]
         time.sleep(0.5)  # Jeda kecil untuk menghindari konflik file
         ss_success = write_to_csv(ss_csv_path, ss_header, ss_data_row)
         

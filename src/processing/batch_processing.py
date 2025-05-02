@@ -286,7 +286,11 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
         if stop_event.is_set() or is_stop_requested():
             return {"status": "stopped", "input": input_path}
         
-        if status in ["processed_exif", "processed_no_exif"]:
+        # Check if processing was generally successful (metadata obtained, file copied/renamed)
+        # even if EXIF writing specifically failed.
+        processed_statuses = ["processed_exif", "processed_no_exif", 
+                              "processed_exif_failed", "processed_unknown_exif_status"]
+        if status in processed_statuses:
             final_output_path = initial_output_path
             
             # Rename file jika diperlukan
@@ -335,7 +339,8 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
                     log_message(f"  WARNING: Gagal menghapus file asli '{original_filename}': {e_remove}")
 
             # Tulis metadata ke CSV setelah rename (jika ada) dan proses berhasil
-            if status in ["processed_exif", "processed_no_exif"] and processed_metadata and final_output_path:
+            # Use the same check for processed statuses here
+            if status in processed_statuses and processed_metadata and final_output_path:
                 try:
                     # Tentukan direktori CSV (gunakan target_output_dir karena file sudah dipindah ke sana)
                     csv_subfolder = os.path.join(target_output_dir, "metadata_csv")
@@ -352,6 +357,9 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
                     if rename_enabled and new_filename:
                         title_for_csv = os.path.splitext(new_filename)[0]
 
+                    # Determine if the original file was a vector
+                    is_vector_file = original_filename.lower().endswith(('.eps', '.ai', '.svg'))
+                    
                     # Tulis ke CSV menggunakan nama file akhir dan judul yang sesuai
                     write_to_platform_csvs(
                         csv_subfolder,
@@ -359,7 +367,8 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
                         title_for_csv,
                         processed_metadata.get('description', ''), # Deskripsi tetap dari metadata
                         processed_metadata.get('tags', []), # Keywords tetap dari metadata
-                        auto_kategori_enabled # Flag kategori
+                        auto_kategori_enabled=auto_kategori_enabled, # Flag kategori
+                        is_vector=is_vector_file # Pass the vector flag
                     )
                 except Exception as e_csv:
                     log_message(f"  Warning: Gagal menulis metadata ke CSV untuk {final_filename_for_csv}: {e_csv}")
@@ -568,7 +577,12 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                                 processed_count += 1
                                 new_name = result.get("new_filename")
                                 log_msg = f"✓ {filename}" + (f" → {new_name}" if new_name else "")
-                                log_message(log_msg) 
+                                log_message(log_msg)
+                            elif status == "processed_exif_failed" or status == "processed_unknown_exif_status": # Handle specific EXIF failure status
+                                processed_count += 1 # Count as processed because CSV/move happened
+                                new_name = result.get("new_filename")
+                                log_msg = f"⚠ {filename}" + (f" → {new_name}" if new_name else "") + " (exif_write_failed, proceeding)"
+                                log_message(log_msg, "warning") # Log as warning
                             elif status == "skipped_exists":
                                 skipped_count += 1
                                 log_message(f"⋯ {filename} (sudah ada)", "info")

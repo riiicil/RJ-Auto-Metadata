@@ -49,7 +49,7 @@ from src.utils.system_checks import (
 from src.metadata.exif_writer import check_exiftool_exists # Keep this import for the check
 
 # Konstanta aplikasi
-APP_VERSION = "2.0.1"
+APP_VERSION = "2.1.0" # Updated version
 CONFIG_FILE = "config.json"
 
 class MetadataApp(ctk.CTk):
@@ -58,7 +58,7 @@ class MetadataApp(ctk.CTk):
     """
     def __init__(self):
         super().__init__()
-        
+
         # Inisialisasi font
         self.default_font_family = "Aptos_display"
         from src.utils.logging import set_log_handler
@@ -72,11 +72,11 @@ class MetadataApp(ctk.CTk):
                 return exists
             except Exception:
                 return False
-                
+
         if not font_exists(self.default_font_family):
             self._log(f"Font '{self.default_font_family}' tidak ditemukan, menggunakan font default sistem", "warning")
             self.default_font_family = "Arial"
-        
+
         # Setup font
         self.font_small = ctk.CTkFont(family=self.default_font_family, size=10)
         self.font_normal = ctk.CTkFont(family=self.default_font_family, size=12)
@@ -102,7 +102,7 @@ class MetadataApp(ctk.CTk):
         # Variable untuk tracking analitik
         self.analytics_enabled_var = tk.BooleanVar(value=True)
         self.installation_id = tk.StringVar(value="")
-        
+
         # Setup UI dasar
         self.title("Auto Metadata")
 
@@ -135,11 +135,11 @@ class MetadataApp(ctk.CTk):
         except Exception as e:
             log_message(f"Error saat mengatur icon aplikasi: {e}", "error") # Use log
             self.iconbitmap_path = None
-        
+
         # Setup ukuran window
         self.geometry("600x800")
         self.minsize(600, 800)
-        
+
         # Variables
         self.input_dir = tk.StringVar()
         self.output_dir = tk.StringVar()
@@ -156,11 +156,11 @@ class MetadataApp(ctk.CTk):
         self.failed_count = 0
         self.skipped_count = 0
         self.stopped_count = 0
-        
+
         # Setup tema
         self.theme_folder = os.path.join(os.path.dirname(__file__), "themes")
         self.available_themes = ["dark", "light", "system"]
-        
+
         # Load tema kustom jika ada
         if os.path.exists(self.theme_folder):
             import glob
@@ -173,30 +173,30 @@ class MetadataApp(ctk.CTk):
         self.config_path = self._get_config_path()
         self.processed_cache = {}
         self.cache_file = os.path.join(os.path.dirname(self.config_path), "processed_cache.json")
-        
+
         # Auto kategori dan foldering
         self.auto_kategori_var = tk.BooleanVar(value=False)
         self.auto_foldering_var = tk.BooleanVar(value=False)
         self._needs_initial_save = False # Flag to track if initial save is needed
-        
+
         # Inisialisasi UI
         self._create_ui()
         self._process_log_queue()
         self._load_settings()
         self._init_analytics() # This might set _needs_initial_save
         self._load_cache()
-        
+
         # Perform initial save if needed after loading and analytics init
         if self._needs_initial_save:
             self._save_settings()
             self._needs_initial_save = False # Reset flag
-            
+
         # Eksekusi sebelum menutup aplikasi
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
-        
+
         # Check mode eksekusi
         self.is_executable = self._is_running_as_executable()
-        
+
         # Setup completion message
         self.completion_manager = CompletionMessageManager(
             self,
@@ -206,7 +206,7 @@ class MetadataApp(ctk.CTk):
             self.font_large,
             self.iconbitmap_path
         )
-        
+
         # Waktu timeout berdasarkan mode eksekusi
         if self.is_executable:
             print("Aplikasi berjalan sebagai executable.")
@@ -288,59 +288,59 @@ class MetadataApp(ctk.CTk):
         except Exception:
             pass
         return False
-    
+
     # --- UI Creation Methods ---
     def _create_ui(self):
         """Membuat UI aplikasi."""
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
-        
+
         # Panel utama
         main_panel = ctk.CTkFrame(self, corner_radius=10)
         main_panel.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
         main_panel.grid_columnconfigure(0, weight=1)
-        main_panel.grid_rowconfigure(0, weight=0) 
+        main_panel.grid_rowconfigure(0, weight=0)
         main_panel.grid_rowconfigure(1, weight=0)
         main_panel.grid_rowconfigure(2, weight=0)
         main_panel.grid_rowconfigure(3, weight=1)
-        
+
         # Frame untuk settings, center, status
         settings_center_status_frame = ctk.CTkFrame(main_panel, fg_color="transparent")
         settings_center_status_frame.grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
         settings_center_status_frame.grid_columnconfigure(0, weight=1)
         settings_center_status_frame.grid_columnconfigure(1, weight=1)
         settings_center_status_frame.grid_columnconfigure(2, weight=1)
-        
+
         # Frame folder
         self._create_folder_frame(main_panel)
-        
+
         # Frame API
         self._create_api_frame(main_panel)
-        
+
         # Frame options
         self._create_options_frame(settings_center_status_frame)
-        
+
         # Frame checkbox
         self._create_checkbox_frame(settings_center_status_frame)
-        
+
         # Frame status
         self._create_status_frame(settings_center_status_frame)
-        
+
         # Frame log
         self._create_log_frame(main_panel)
-        
+
         # Watermark
         self._create_watermark(main_panel)
-        
+
         # Setup ukuran relatif
         main_panel.grid_rowconfigure(3, weight=1)
-    
+
     def _create_folder_frame(self, parent):
         """Membuat frame untuk input/output folder."""
         folder_frame = ctk.CTkFrame(parent, corner_radius=8)
         folder_frame.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
         folder_frame.grid_columnconfigure(1, weight=1)
-        
+
         older_header_tooltip = """
 Pilih folder sumber (input) dan folder tujuan (output) untuk gambar.
 
@@ -351,28 +351,28 @@ Gambar dari folder input akan diproses dengan API, kemudian disalin ke folder ou
 """
         folder_header = self._create_header_with_help(folder_frame, "Folder Input/Output", older_header_tooltip, font=ctk.CTkFont(size=15, weight="bold"))
         folder_header.grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
-        
+
         ctk.CTkLabel(folder_frame, text="Input Folder:").grid(
             row=1, column=0, padx=10, pady=5, sticky="w")
-        
+
         self.input_entry = ctk.CTkEntry(folder_frame, textvariable=self.input_dir)
         self.input_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
-        
+
         self.input_button = ctk.CTkButton(folder_frame, text="Browse", command=self._select_input_folder, width=70, fg_color="#079183")
         self.input_button.grid(row=1, column=2, padx=5, pady=5)
-        
+
         ctk.CTkLabel(folder_frame, text="Output Folder:").grid(row=2, column=0, padx=10, pady=5, sticky="w")
-        
+
         self.output_entry = ctk.CTkEntry(folder_frame, textvariable=self.output_dir)
         self.output_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
-        
+
         self.output_button = ctk.CTkButton(folder_frame, text="Browse", command=self._select_output_folder, width=70, fg_color="#079183")
         self.output_button.grid(row=2, column=2, padx=5, pady=5)
-        
+
         folder_tooltip_text = "Input dan Output harus berbeda. \nJangan menggunakan folder yang sama untuk keduanya."
         ToolTip(self.input_entry, folder_tooltip_text)
         ToolTip(self.output_entry, folder_tooltip_text)
-    
+
     def _create_api_frame(self, parent):
         """Membuat frame untuk API keys."""
         api_frame = ctk.CTkFrame(parent, corner_radius=8)
@@ -380,7 +380,7 @@ Gambar dari folder input akan diproses dengan API, kemudian disalin ke folder ou
         api_frame.grid_columnconfigure(0, weight=1)
         api_frame.grid_columnconfigure(1, weight=0)
         api_frame.grid_columnconfigure(2, weight=0)
-        
+
         api_header_tooltip = """
 Tambahkan satu atau lebih API key Gemini untuk memproses gambar.
 Setiap baris adalah satu API key.
@@ -416,37 +416,37 @@ Semakin banyak API key, semakin cepat proses batch.
         self.api_textbox.grid(row=1, column=0, padx=(10, 5), pady=(0, 10), sticky="nsew")
         # Bind key release to sync internal list when keys are visible and user types
         self.api_textbox.bind("<KeyRelease>", self._sync_actual_keys_from_textbox)
-        
+
         api_load_save_buttons = ctk.CTkFrame(api_frame, fg_color="transparent")
         api_load_save_buttons.grid(row=1, column=1, padx=5, pady=(12, 10), sticky="ns")
-        
+
         self.load_api_button = ctk.CTkButton(api_load_save_buttons, text="Load", width=70, command=self._load_api_keys, fg_color="#079183")
         self.load_api_button.pack(pady=5, fill=tk.X)
-        
+
         self.save_api_button = ctk.CTkButton(api_load_save_buttons, text="Save", width=70, command=self._save_api_keys, fg_color="#079183")
         self.save_api_button.pack(pady=5, fill=tk.X)
-        
+
         self.delete_api_button = ctk.CTkButton(api_load_save_buttons, text="Delete", width=70, command=self._delete_selected_api_key, fg_color="#079183")
         self.delete_api_button.pack(pady=5, fill=tk.X)
-        
+
         process_buttons_frame = ctk.CTkFrame(api_frame, fg_color="transparent")
         process_buttons_frame.grid(row=1, column=2, padx=(5, 10), pady=(0, 10), sticky="ns")
-        
+
         self.start_button = ctk.CTkButton(process_buttons_frame, text="Mulai Proses", command=self._start_processing, font=self.font_medium, height=35, fg_color="#079183")
         self.start_button.pack(pady=5, fill=tk.X)
-        
+
         self.stop_button = ctk.CTkButton(process_buttons_frame, text="Hentikan", command=self._stop_processing, font=self.font_medium, height=35, state=tk.DISABLED, fg_color=("#bf3a3a", "#8d1f1f"))
         self.stop_button.pack(pady=5, fill=tk.X)
-        
+
         self.clear_button = ctk.CTkButton(process_buttons_frame, text="Clear Log", command=self._clear_log, font=self.font_medium, height=35, fg_color="#079183")
         self.clear_button.pack(pady=5, fill=tk.X)
-    
+
     def _create_options_frame(self, parent):
         """Membuat frame untuk opsi pengaturan."""
         options_frame = ctk.CTkFrame(parent, corner_radius=8)
         options_frame.grid(row=0, column=0, padx=(0, 3), pady=0, sticky="nsew")
         options_frame.grid_columnconfigure(1, weight=1)
-        
+
         settings_header_tooltip = """
 Konfigurasi perilaku aplikasi:
 
@@ -459,81 +459,81 @@ Konfigurasi perilaku aplikasi:
 - Auto Kategori: Jika aktif, otomatis\n  mengkategorikan file sesuai metadata\n  dari API. (Hasilnya mungkin belum\n  sempurna, harap periksa kembali).
 
 - Auto Foldering: Jika aktif, file yang\n  diproses akan otomatis dimasukkan ke\n  dalam folder berdasarkan tipenya\n  (misal: Images, Vectors, Video).
-    
+
 *NB: Pengaturan ini disimpan secara\n        otomatis untuk sesi berikutnya.
 """
         settings_header = self._create_header_with_help(options_frame, "Pengaturan", settings_header_tooltip, font=ctk.CTkFont(size=15, weight="bold"))
         settings_header.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="wns")
-        
+
         theme_label = ctk.CTkLabel(options_frame, text="Tema:", font=self.font_normal)
         theme_label.grid(row=1, column=0, padx=10, pady=(5, 5), sticky="wns")
-        
+
         self.theme_var = tk.StringVar(value="dark")
         self.theme_dropdown = ctk.CTkComboBox(options_frame, values=self.available_themes, variable=self.theme_var, command=self._change_theme, width=100, justify='center')
         self.theme_dropdown.grid(row=1, column=1, padx=5, pady=(5, 5), sticky="w")
-        
+
         ctk.CTkLabel(options_frame, text="Workers:", font=self.font_normal).grid(row=2, column=0, padx=10, pady=5, sticky="w")
-        
+
         self.workers_entry = ctk.CTkEntry(options_frame, textvariable=self.workers_var,width=100, justify='center', font=self.font_normal)
         self.workers_entry.grid(row=2, column=1, padx=5, pady=5, sticky="wns")
-        
+
         ctk.CTkLabel(options_frame, text="Delay (s):", font=self.font_normal).grid(row=3, column=0, padx=10, pady=5, sticky="wns")
-        
+
         self.delay_entry = ctk.CTkEntry(options_frame, textvariable=self.delay_var,width=100, justify='center', font=self.font_normal)
         self.delay_entry.grid(row=3, column=1, padx=5, pady=5, sticky="wns")
-    
+
     def _create_checkbox_frame(self, parent):
         """Membuat frame untuk checkbox."""
         checkbox_frame = ctk.CTkFrame(parent, corner_radius=8)
         checkbox_frame.grid(row=0, column=1, padx=3, pady=0, sticky="wes")
         checkbox_frame.grid_columnconfigure(0, weight=1)
-        
+
         self.rename_switch = ctk.CTkSwitch(checkbox_frame, text="Rename File?", variable=self.rename_files_var, font=self.font_normal)
         self.rename_switch.grid(row=0, column=0, padx=10, pady=8, sticky="w") # Adjusted sticky to 'w'
-        
+
         self.auto_kategori_switch = ctk.CTkSwitch(checkbox_frame, text="Auto Kategori?", variable=self.auto_kategori_var, font=self.font_normal)
         self.auto_kategori_switch.grid(row=1, column=0, padx=10, pady=8, sticky="w") # Adjusted sticky to 'w'
-        
+
         self.auto_foldering_switch = ctk.CTkSwitch(checkbox_frame, text="Auto Foldering?", variable=self.auto_foldering_var, font=self.font_normal)
         self.auto_foldering_switch.grid(row=2, column=0, padx=10, pady=8, sticky="w") # Adjusted sticky to 'w'
-    
+
     def _create_status_frame(self, parent):
         """Membuat frame untuk status proses."""
         status_frame_new = ctk.CTkFrame(parent, corner_radius=8)
         status_frame_new.grid(row=0, column=2, padx=(3, 0), pady=0, sticky="nw")
         status_frame_new.grid_columnconfigure(0, weight=1)
         status_frame_new.grid_rowconfigure(1, weight=1)
-        
+
         ctk.CTkLabel(status_frame_new, text="Status", font=self.font_large).grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        
+
         ctk.CTkLabel(status_frame_new, textvariable=self.progress_text_var, font=self.font_medium).grid(row=1, column=0, padx=10, pady=5, sticky="w")
-        
+
         self.progress_bar = ctk.CTkProgressBar(status_frame_new, orientation="horizontal", height=65, width=130, corner_radius=0)
         self.progress_bar.grid(row=2, column=0, padx=10, pady=(5, 10), sticky="w")
         self.progress_bar.set(0)
-    
+
     def _create_log_frame(self, parent):
         """Membuat frame untuk log."""
         log_frame = ctk.CTkFrame(parent, corner_radius=8)
         log_frame.grid(row=3, column=0, padx=5, pady=5, sticky="nsew")
         log_frame.grid_columnconfigure(0, weight=1)
         log_frame.grid_rowconfigure(1, weight=1)
-        
+
         ctk.CTkLabel(log_frame, text="Log", font=self.font_large).grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        
+
         self.log_text = ctk.CTkTextbox(log_frame, wrap=tk.WORD, height=200, font=self.font_normal)
         self.log_text.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="nsew")
         self.log_text.configure(state=tk.DISABLED)
-        
+
         # Setup tag warna
-        theme_mode = ctk.get_appearance_mode() 
-        success_color = ("#21a645", "#21a645") 
+        theme_mode = ctk.get_appearance_mode()
+        success_color = ("#21a645", "#21a645")
         error_color = ("#ff0000", "#ff0000")
         warning_color = ("#ff9900", "#ff9900")
         info_color = ("#0088ff", "#0088ff")
         cooldown_color = ("#8800ff", "#8800ff")
         bold_font = (self.default_font_family, 11, "bold")
-        
+
         self.log_text._textbox.tag_configure("success", foreground=success_color[1 if theme_mode == "dark" else 0])
         self.log_text._textbox.tag_configure("error", foreground=error_color[1 if theme_mode == "dark" else 0])
         self.log_text._textbox.tag_configure("warning", foreground=warning_color[1 if theme_mode == "dark" else 0])
@@ -563,7 +563,7 @@ Konfigurasi perilaku aplikasi:
             # self._update_console_toggle_text()
 
         # Watermark
-        watermark_label = ctk.CTkLabel(bottom_frame, text="© Riiicil 2025 - Ver 2.0.1", font=ctk.CTkFont(size=10), text_color=("gray50", "gray70"))
+        watermark_label = ctk.CTkLabel(bottom_frame, text=f"© Riiicil 2025 - Ver {APP_VERSION}", font=ctk.CTkFont(size=10), text_color=("gray50", "gray70")) # Use f-string for version
         watermark_label.grid(row=0, column=1, sticky="e", padx=(5, 10))
 
     def _toggle_console_visibility(self):
@@ -587,19 +587,19 @@ Konfigurasi perilaku aplikasi:
     def _create_header_with_help(self, parent, text, tooltip_text, font=None):
         """Membuat header dengan icon bantuan."""
         header_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        
+
         if font:
             header_label = ctk.CTkLabel(header_frame, text=text, font=font)
         else:
             header_label = ctk.CTkLabel(header_frame, text=text, font=("Segoe UI", 12, "bold"))
-            
+
         header_label.pack(side=tk.LEFT, padx=(0, 5))
-        
+
         help_icon_size = 16
         help_icon = ctk.CTkLabel(
-            header_frame, 
-            text="?", 
-            width=help_icon_size, 
+            header_frame,
+            text="?",
+            width=help_icon_size,
             height=help_icon_size,
             fg_color=("#3a7ebf", "#1f538d"),
             corner_radius=8,
@@ -607,11 +607,11 @@ Konfigurasi perilaku aplikasi:
             font=("Segoe UI", 10, "bold")
         )
         help_icon.pack(side=tk.LEFT, padx=(0, 5))
-        
+
         ToolTip(help_icon, tooltip_text)
-        
+
         return header_frame
-    
+
     # --- Analytics Methods ---
     def _init_analytics(self):
         """Generate installation ID if needed and send startup event."""
@@ -629,20 +629,20 @@ Konfigurasi perilaku aplikasi:
         """Mengirim event analitik jika diaktifkan."""
         if not self.analytics_enabled_var.get():
             return
-        
+
         if not MEASUREMENT_ID or not API_SECRET:
             self._log("Konfigurasi Analytics tidak lengkap, event tidak dikirim.", "warning")
             return
-        
+
         # Tambah parameter standar
         system_params = {
             "operating_system": platform.system(),
             "os_version": platform.release(),
         }
-        
+
         # Gabungkan parameter
         full_params = {**system_params, **params}
-        
+
         # Kirim dalam thread terpisah
         send_analytics_event(
             self.installation_id.get(),
@@ -650,7 +650,7 @@ Konfigurasi perilaku aplikasi:
             APP_VERSION,
             full_params
         )
-    
+
     # --- File Management Methods ---
     def _select_input_folder(self):
         """Dialog untuk memilih folder input."""
@@ -659,12 +659,12 @@ Konfigurasi perilaku aplikasi:
             output_dir = self.output_dir.get().strip()
             if output_dir and os.path.normpath(directory) == os.path.normpath(output_dir):
                 tk.messagebox.showwarning(
-                    "Folder Sama", 
+                    "Folder Sama",
                     "Folder input tidak boleh sama dengan folder output.\nSilakan pilih folder yang berbeda."
                 )
                 return
             self.input_dir.set(directory)
-    
+
     def _select_output_folder(self):
         """Dialog untuk memilih folder output."""
         directory = tk.filedialog.askdirectory(title="Pilih Folder Output")
@@ -672,12 +672,12 @@ Konfigurasi perilaku aplikasi:
             input_dir = self.input_dir.get().strip()
             if input_dir and os.path.normpath(directory) == os.path.normpath(input_dir):
                 tk.messagebox.showwarning(
-                    "Folder Sama", 
+                    "Folder Sama",
                     "Folder output tidak boleh sama dengan folder input.\nSilakan pilih folder yang berbeda."
                 )
                 return
             self.output_dir.set(directory)
-    
+
     def _load_cache(self):
         """Memuat cache file yang telah diproses."""
         try:
@@ -687,32 +687,32 @@ Konfigurasi perilaku aplikasi:
         except Exception as e:
             self._log(f"Error memuat cache: {e}", "error")
             self.processed_cache = {}
-    
+
     def _save_cache(self):
         """Menyimpan cache file yang telah diproses."""
         try:
             if len(self.processed_cache) > 1000:
                 # Simpan hanya 1000 entri terbaru
-                cache_items = sorted(self.processed_cache.items(), 
-                                key=lambda x: x[1].get('timestamp', 0), 
+                cache_items = sorted(self.processed_cache.items(),
+                                key=lambda x: x[1].get('timestamp', 0),
                                 reverse=True)
                 self.processed_cache = dict(cache_items[:1000])
-                
+
             with open(self.cache_file, 'w', encoding='utf-8') as f:
                 json.dump(self.processed_cache, f, indent=4)
         except Exception as e:
             self._log(f"Error menyimpan cache: {e}", "error")
-    
+
     # --- API Key Management Methods ---
     def _load_api_keys(self):
         """Dialog untuk memuat API key dari file."""
         filepath = tk.filedialog.askopenfilename(
-            title="Pilih File API Keys (.txt)", 
+            title="Pilih File API Keys (.txt)",
             filetypes=(("Text files", "*.txt"), ("All files", "*.*")))
-        
+
         if not filepath:
             return
-            
+
         try:
             keys = read_api_keys(filepath)
             if keys:
@@ -725,24 +725,24 @@ Konfigurasi perilaku aplikasi:
         except Exception as e:
             self._log(f"Error saat memuat API keys: {e}")
             tk.messagebox.showerror("Error", f"Gagal memuat API keys: {e}")
-    
+
     def _save_api_keys(self):
         """Dialog untuk menyimpan API key ke file."""
         keys_to_save = self._get_keys_from_textbox()
         if not keys_to_save:
-            tk.messagebox.showwarning("Tidak Ada Key", 
+            tk.messagebox.showwarning("Tidak Ada Key",
                 "Tidak ada API Key untuk disimpan.")
             return
-            
+
         filepath = tk.filedialog.asksaveasfilename(
-            title="Simpan API Keys", 
+            title="Simpan API Keys",
             defaultextension=".txt",
             initialfile="api_keys.txt",
             filetypes=(("Text files", "*.txt"), ("All files", "*.*")))
-            
+
         if not filepath:
             return
-            
+
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write("\n".join(keys_to_save))
@@ -750,7 +750,7 @@ Konfigurasi perilaku aplikasi:
         except Exception as e:
             self._log(f"Error saat menyimpan API keys: {e}")
             tk.messagebox.showerror("Error", f"Gagal menyimpan API keys: {e}")
-    
+
     def _delete_selected_api_key(self):
         """Menghapus API key berdasarkan seleksi atau posisi kursor."""
         start_line_idx = -1
@@ -863,7 +863,7 @@ Konfigurasi perilaku aplikasi:
                     placeholders = ["•" * 39] * len(self._actual_api_keys) # 39 bullet characters placeholder
                     self.api_textbox.insert("1.0", "\n".join(placeholders))
 
-            self.api_textbox.configure(state=tk.NORMAL) 
+            self.api_textbox.configure(state=tk.NORMAL)
 
             # Restore cursor position and selection
             self.api_textbox.mark_set(tk.INSERT, cursor_pos)
@@ -880,17 +880,17 @@ Konfigurasi perilaku aplikasi:
         """Gets the actual API keys from the internal list."""
         # Always return the actual keys, regardless of display state
         # Sync first in case user typed while keys were visible
-        self._sync_actual_keys_from_textbox() 
+        self._sync_actual_keys_from_textbox()
         return self._actual_api_keys
 
     def _sync_actual_keys_from_textbox(self, event=None):
         """Update the internal list when user types in the visible textbox."""
         # This should only run if keys are currently visible to avoid overwriting
         # the actual keys with '****' if the user types while hidden.
-        if self.show_api_keys_var.get(): 
+        if self.show_api_keys_var.get():
             try:
                 # Get text directly from the widget
-                keys_text = self.api_textbox.get("1.0", "end-1c") 
+                keys_text = self.api_textbox.get("1.0", "end-1c")
                 # Update the internal list
                 self._actual_api_keys = [line.strip() for line in keys_text.splitlines() if line.strip()]
             except tk.TclError:
@@ -899,7 +899,7 @@ Konfigurasi perilaku aplikasi:
                  # Log error but try to preserve existing keys if possible
                  self._log(f"Error syncing keys from textbox: {e}", "error")
                  # Avoid clearing keys on error, maybe log previous state?
-                 # self._actual_api_keys = [] 
+                 # self._actual_api_keys = []
 
     # --- Settings Methods ---
     def _get_config_path(self):
@@ -909,7 +909,7 @@ Konfigurasi perilaku aplikasi:
             return [line.strip() for line in keys_text.splitlines() if line.strip()]
         except tk.TclError:
             return []
-    
+
     # --- Settings Methods ---
     def _get_config_path(self):
         """Mendapatkan path file konfigurasi."""
@@ -919,7 +919,7 @@ Konfigurasi perilaku aplikasi:
                 config_dir = os.path.join(documents_path, "RJAutoMetadata")
                 os.makedirs(config_dir, exist_ok=True)
                 return os.path.join(config_dir, CONFIG_FILE)
-        
+
         try:
             if getattr(sys, 'frozen', False):
                 base_dir = os.path.dirname(sys.executable)
@@ -929,21 +929,21 @@ Konfigurasi perilaku aplikasi:
         except Exception as e:
             print(f"Error getting config path: {e}")
             return CONFIG_FILE
-    
+
     def _load_settings(self):
         """Memuat pengaturan dari file konfigurasi."""
         try:
             self._log(f"Mencoba memuat pengaturan...", "info")
-            
+
             if os.path.exists(self.config_path):
                 self.analytics_enabled_var.set(True) # Default True untuk instalasi baru
                 self.installation_id.set("")
-                
+
                 try:
                     with open(self.config_path, 'r', encoding='utf-8') as f:
                         config_content = f.read()
                         settings = json.loads(config_content)
-                        
+
                         self.input_dir.set(settings.get("input_dir", ""))
                         self.output_dir.set(settings.get("output_dir", ""))
                         self.delay_var.set(str(settings.get("delay", "10")))
@@ -962,7 +962,7 @@ Konfigurasi perilaku aplikasi:
                         loaded_theme = settings.get("theme", "dark")
                         self.theme_var.set(loaded_theme)
                         ctk.set_appearance_mode(loaded_theme)
-                        
+
                         # Load ID instalasi
                         loaded_install_id = settings.get("installation_id")
                         if loaded_install_id:
@@ -970,7 +970,7 @@ Konfigurasi perilaku aplikasi:
                             self._log(f"ID Instalasi ditemukan: {loaded_install_id[:8]}...", "info")
                         else:
                               self._log("ID Instalasi belum ada di config.", "info")
-                        
+
                         # Update the textbox display after loading internal keys
                         self._update_api_textbox()
                         self._log("Pengaturan lain berhasil dimuat dari konfigurasi", "info")
@@ -997,12 +997,12 @@ Konfigurasi perilaku aplikasi:
             self._log(traceback.format_exc(), "error")
             self.analytics_enabled_var.set(True) # Fallback
             self.installation_id.set("")
-    
+
     def _save_settings(self):
         """Menyimpan pengaturan ke file konfigurasi."""
         # Ensure we save the actual keys from the internal list
         self._sync_actual_keys_from_textbox() # Sync just in case keys were visible and edited
-        
+
         settings = {
             "config_version": "1.0",
             "input_dir": self.input_dir.get(),
@@ -1020,19 +1020,19 @@ Konfigurasi perilaku aplikasi:
             "analytics_enabled": self.analytics_enabled_var.get(),
             "installation_id": self.installation_id.get(),
         }
-        
+
         try:
             config_dir = os.path.dirname(self.config_path)
             if config_dir and not os.path.exists(config_dir):
                 self._log(f"Membuat direktori config: {config_dir}", "info")
                 os.makedirs(config_dir, exist_ok=True)
-                
+
             if not os.access(config_dir, os.W_OK):
                 self._log(f"Warning: Direktori config tidak dapat ditulis: {config_dir}", "warning")
-                if os.name == 'nt': 
+                if os.name == 'nt':
                     self.config_path = os.path.join(os.environ.get('USERPROFILE', ''), "RJAutoMetadata_config.json")
                     self._log(f"Mencoba fallback ke home dir: {self.config_path}", "info")
-                    
+
             self._log(f"Menyimpan pengaturan...", "info")
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json_data = json.dumps(settings, indent=4)
@@ -1042,11 +1042,11 @@ Konfigurasi perilaku aplikasi:
             self._log(f"Error izin: {pe}", "error")
             alt_path = os.path.join(os.getcwd(), "rjmetadata_config.json")
             self._log(f"Mencoba menulis ke lokasi alternatif: {alt_path}", "warning")
-            
+
             try:
                 with open(alt_path, 'w', encoding='utf-8') as f:
                     json.dump(settings, f, indent=4)
-                self.config_path = alt_path 
+                self.config_path = alt_path
                 self._log(f"Pengaturan berhasil disimpan ke lokasi alternatif", "info")
             except Exception as alt_e:
                 self._log(f"Gagal menulis ke lokasi alternatif: {alt_e}", "error")
@@ -1054,7 +1054,7 @@ Konfigurasi perilaku aplikasi:
             self._log(f"Error menyimpan pengaturan: {e}", "error")
             import traceback
             self._log(traceback.format_exc(), "error")
-    
+
     def _change_theme(self, selected_theme):
         """Mengganti tema aplikasi."""
         try:
@@ -1067,13 +1067,13 @@ Konfigurasi perilaku aplikasi:
                 else:
                     self._log(f"Tema '{selected_theme}' tidak ditemukan.", "error")
                     return
-                    
+
             self._log(f"Tema diubah ke: {selected_theme}", "info")
             self._update_log_colors()
             self._save_settings()
         except Exception as e:
             self._log(f"Error mengganti tema: {e}", "error")
-    
+
     def _update_log_colors(self):
         """Update warna tag dalam log berdasarkan tema."""
         theme_mode = ctk.get_appearance_mode()
@@ -1082,40 +1082,40 @@ Konfigurasi perilaku aplikasi:
         warning_color = ("#aa5500")
         info_color = ("#000077",)
         cooldown_color = ("#550055")
-        
+
         self.log_text._textbox.tag_configure("success", foreground=success_color)
         self.log_text._textbox.tag_configure("error", foreground=error_color)
         self.log_text._textbox.tag_configure("warning", foreground=warning_color)
         self.log_text._textbox.tag_configure("info", foreground=info_color[0])
         self.log_text._textbox.tag_configure("cooldown", foreground=cooldown_color)
-    
+
     # --- Process Control Methods ---
     def _validate_folders(self):
         """Validasi folder input dan output."""
         input_dir = self.input_dir.get().strip()
         output_dir = self.output_dir.get().strip()
-        
+
         if input_dir and output_dir and os.path.normpath(input_dir) == os.path.normpath(output_dir):
             self.input_entry.configure(border_color=("red", "#aa0000"))
             self.output_entry.configure(border_color=("red", "#aa0000"))
             self.start_button.configure(state=tk.DISABLED)
             return False
         else:
-            self.input_entry.configure(border_color=None) 
+            self.input_entry.configure(border_color=None)
             self.output_entry.configure(border_color=None)
-            
+
             if self.start_button['state'] == tk.DISABLED and not self.processing_thread:
                 self.start_button.configure(state=tk.NORMAL)
-                
+
             return True
-    
+
     def _validate_path_permissions(self, path, check_write=True):
         """Memeriksa izin akses path."""
         try:
             if not os.path.exists(path):
                 self._log(f"Path tidak ada: {path}", "info")
                 return False
-                
+
             if os.path.isdir(path):
                 if check_write:
                     return is_writable_directory(path)
@@ -1125,61 +1125,61 @@ Konfigurasi perilaku aplikasi:
                 can_write = os.access(path, os.W_OK) if check_write else True
                 self._log(f"File {path}: bisa dibaca = {can_read}, bisa ditulis = {can_write}", "info")
                 return can_read and can_write
-                
+
             return False
         except Exception as e:
             self._log(f"Error validasi path: {e}", "error")
             return False
-    
+
     def _start_processing(self):
         """Memulai proses batch."""
         input_dir = self.input_dir.get().strip()
         output_dir = self.output_dir.get().strip()
-        
+
         # Disable UI
         self._disable_ui_during_processing()
-        
+
         # Validasi input/output
         if not input_dir or not output_dir:
             self._reset_ui_after_processing()
-            tk.messagebox.showwarning("Input Kurang", 
+            tk.messagebox.showwarning("Input Kurang",
                 "Harap pilih folder input dan output.")
             return
-            
+
         if os.path.normpath(input_dir) == os.path.normpath(output_dir):
             self._reset_ui_after_processing()
-            tk.messagebox.showwarning("Folder Sama", 
+            tk.messagebox.showwarning("Folder Sama",
                 "Folder input dan output tidak boleh sama.\nSilakan pilih folder yang berbeda.")
             return
-            
+
         if not os.path.isdir(input_dir):
             self._reset_ui_after_processing()
-            tk.messagebox.showerror("Error", 
+            tk.messagebox.showerror("Error",
                 f"Folder input tidak valid:\n{input_dir}")
             return
-                
+
         if not os.path.isdir(output_dir):
-            if tk.messagebox.askyesno("Buat Folder?", 
+            if tk.messagebox.askyesno("Buat Folder?",
                 f"Folder output '{os.path.basename(output_dir)}' tidak ditemukan.\n\nBuat folder?"):
                 try:
                     os.makedirs(output_dir)
                 except Exception as e:
                     self._reset_ui_after_processing()
-                    tk.messagebox.showerror("Error", 
+                    tk.messagebox.showerror("Error",
                         f"Gagal membuat folder output:\n{e}")
                     return
             else:
                 self._reset_ui_after_processing()
                 return
-        
+
         # Validasi API key
         current_api_keys = self._get_keys_from_textbox()
         if not current_api_keys:
             self._reset_ui_after_processing()
-            tk.messagebox.showwarning("Input Kurang", 
+            tk.messagebox.showwarning("Input Kurang",
                 "Harap masukkan setidaknya satu API Key.")
             return
-        
+
         # Validasi parameter lain
         try:
             delay_sec = int(self.delay_var.get().strip() or "0")
@@ -1191,7 +1191,7 @@ Konfigurasi perilaku aplikasi:
         except ValueError:
             self.delay_var.set("10")
             delay_sec = 10
-        
+
         # Validasi jumlah worker
         num_api_keys = len(current_api_keys)
         max_workers = 10
@@ -1207,28 +1207,28 @@ Konfigurasi perilaku aplikasi:
         except ValueError:
             self.workers_var.set("3")
             num_workers = 3
-        
+
         # Reset counter dan timer
         self.processed_count = 0
         self.failed_count = 0
         self.skipped_count = 0
         self.stopped_count = 0
-        
+
         # Siapkan flag untuk pengaturan
         rename_enabled = self.rename_files_var.get()
         auto_kategori_enabled = self.auto_kategori_var.get()
         auto_foldering_enabled = self.auto_foldering_var.get()
-        
+
         # Siapkan dan mulai proses
         self.stop_event.clear()
         self.start_time = time.monotonic()
         self.start_button.configure(state=tk.DISABLED, text="Memproses....")
         self.stop_button.configure(state=tk.NORMAL)
         self.progress_text_var.set(f"Proses: Memulai....")
-        
+
         # Log begin
         self._log("Kompresi otomatis aktif untuk file besar", "warning")
-        
+
         # Kirim analytics jika diaktifkan
         if self.analytics_enabled_var.get():
             self._send_analytics_event("process_started", {
@@ -1239,7 +1239,7 @@ Konfigurasi perilaku aplikasi:
                 "auto_kategori": auto_kategori_enabled,
                 "auto_foldering": auto_foldering_enabled
             })
-        
+
         # Mulai thread processing
         self.processing_thread = threading.Thread(
             target=self._run_processing,
@@ -1249,7 +1249,7 @@ Konfigurasi perilaku aplikasi:
             daemon=True
         )
         self.processing_thread.start()
-    
+
     def _disable_ui_during_processing(self):
         """Menonaktifkan UI selama pemrosesan berjalan."""
         self.start_button.configure(state=tk.DISABLED)
@@ -1268,7 +1268,7 @@ Konfigurasi perilaku aplikasi:
         self.delete_api_button.configure(state=tk.DISABLED)
         self.input_button.configure(state=tk.DISABLED)
         self.output_button.configure(state=tk.DISABLED)
-    
+
     def _run_processing(self, input_dir, output_dir, api_keys, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled):
         """Thread worker untuk pemrosesan batch."""
         # Import path yang ditemukan saat thread dimulai
@@ -1290,13 +1290,13 @@ Konfigurasi perilaku aplikasi:
                 progress_callback=self._update_progress,
                 stop_event=self.stop_event
             )
-            
+
             # Update counter dari hasil
             self.processed_count = result.get("processed_count", 0)
             self.failed_count = result.get("failed_count", 0)
             self.skipped_count = result.get("skipped_count", 0)
             self.stopped_count = result.get("stopped_count", 0)
-            
+
             # Kirim analytics jika diaktifkan
             if self.analytics_enabled_var.get():
                 total_files = result.get("total_files", 0)
@@ -1308,7 +1308,7 @@ Konfigurasi perilaku aplikasi:
                     "stopped_count": self.stopped_count,
                     "success_rate": (self.processed_count / total_files) * 100 if total_files > 0 else 0
                 })
-            
+
             # Menentukan pesan akhir berdasarkan hasil
             final_message = "Terjadi error tidak dikenal." # Default message
 
@@ -1335,62 +1335,62 @@ Konfigurasi perilaku aplikasi:
                 self.after(200, self._reset_ui_after_processing)
 
             # Catatan: Logika pesan akhir bisa disesuaikan lagi jika perlu
-            
+
         except Exception as e:
             import traceback
             tb_str = traceback.format_exc()
             self._log(f"Error fatal dalam processing thread: {e}\nTraceback:\n{tb_str}", "error")
             self.after(0, self._reset_ui_after_processing)
-    
+
     def _update_progress(self, current, total):
         """Update progress bar dan teks status."""
         progress_value = 0 if total == 0 else current / total
         self.progress_bar.set(progress_value)
-        
+
         # Update status text
         progress_percent = (current / total) * 100 if total > 0 else 0
         self.progress_text_var.set(f"Proses: {current}/{total} ({progress_percent:.0f}%)")
-        
+
         # Hitung dan update waktu tersisa
         if self.start_time and current > 0 and current < total:
             elapsed_time = time.monotonic() - self.start_time
             time_per_file = elapsed_time / current
             remaining_files = total - current
             time_left = time_per_file * remaining_files
-            
+
             # elapsed_str = self._format_time(elapsed_time)
             # left_str = self._format_time(time_left)
             # self._log(f"Progres: {current}/{total} - sisa waktu: {left_str}", "info")
-        
+
         self.update_idletasks()
-    
+
     def _format_time(self, seconds):
         """Format waktu dari detik menjadi format jam:menit:detik."""
         if seconds is None or not isinstance(seconds, (int, float)) or seconds < 0:
             return "00:00:00"
-            
+
         hours = int(seconds) // 3600
         minutes = (int(seconds) % 3600) // 60
         secs = int(seconds) % 60
-        
+
         return f"{hours:02d}:{minutes:02d}:{secs:02d}"
-    
+
     def _stop_processing(self):
         """Menghentikan proses yang sedang berjalan."""
         if self.processing_thread and self.processing_thread.is_alive():
             if tk.messagebox.askyesno("Hentikan Proses", "Hentikan proses? Tugas berjalan akan diberi sinyal stop."):
                 self._log("Menerima permintaan berhenti...", "warning")
                 self.stop_event.set()
-                
+
                 # Set global flag
                 from src.api.gemini_api import set_force_stop
                 set_force_stop()
-                
+
                 self.stop_button.configure(state=tk.DISABLED, text="Menghentikan...")
                 self._stop_request_time = time.monotonic()
                 self.update_idletasks()
                 self.update()
-                
+
                 try:
                     if self.is_executable:
                         self._log("Mode executable terdeteksi, menggunakan interrupt force...", "warning")
@@ -1398,63 +1398,63 @@ Konfigurasi perilaku aplikasi:
                         self._log("Menghentikan semua proses aktif...", "warning")
                 except Exception as e:
                     self._log(f"Error saat mencoba force interrupt: {e}", "error")
-                
-                self._check_thread_ended() 
+
+                self._check_thread_ended()
         else:
             self.stop_button.configure(state=tk.DISABLED)
             self._reset_ui_after_processing()
-    
+
     def _check_thread_ended(self):
         """Cek apakah thread pemrosesan telah berakhir."""
         self.update_idletasks()
         thread_ended = not self.processing_thread or not self.processing_thread.is_alive()
         force_reset = False
-        
+
         if hasattr(self, '_stop_request_time') and self._stop_request_time is not None:
             elapsed_since_stop = time.monotonic() - self._stop_request_time
-            timeout_threshold = 1.5 if self.is_executable else 2.5 
-            
+            timeout_threshold = 1.5 if self.is_executable else 2.5
+
             if elapsed_since_stop > timeout_threshold:
                 self._log(f"Thread tidak merespons setelah {elapsed_since_stop:.1f} detik, melakukan force reset UI...", "warning")
                 force_reset = True
-                
+
                 if self.is_executable and self.processing_thread and self.processing_thread.is_alive():
                     self._log("Melakukan hard reset pada thread worker...", "warning")
                     from src.api.gemini_api import set_force_stop
                     set_force_stop()
-        
+
         if thread_ended or force_reset:
             self.after(10, self._reset_ui_after_processing)
         else:
             self.after(50, self._check_thread_ended)
-    
+
     def _reset_ui_after_processing(self):
         """Reset UI ke kondisi awal setelah pemrosesan selesai."""
         try:
             self._stop_request_time = None
-            
+
             # Reset flag
             from src.api.gemini_api import reset_force_stop
             reset_force_stop()
-            
+
             # Reset UI
             self.progress_text_var.set("Proses: Siap memulai")
             self.start_button.configure(state=tk.NORMAL, text="Mulai Proses")
             self.stop_button.configure(state=tk.DISABLED, text="Hentikan")
             self.progress_bar.set(0)
-            
+
             # Reset state
             self.processing_thread = None
             self.start_time = None
             self.stop_event.clear()
-            
+
             # Update
             self.update_idletasks()
-            
+
             # Simpan state
             self._save_cache()
             self._save_settings()
-            
+
             # Re-enable UI
             self.start_button.configure(state=tk.NORMAL)
             self.clear_button.configure(state=tk.NORMAL)
@@ -1475,19 +1475,19 @@ Konfigurasi perilaku aplikasi:
             print(f"Error saat reset UI: {e}")
             import traceback
             traceback.print_exc()
-            
+
             try:
                 self.start_button.configure(state=tk.NORMAL, text="Mulai Proses")
                 self.stop_button.configure(state=tk.DISABLED, text="Hentikan")
                 self.update_idletasks()
             except:
                 pass
-    
+
     # --- Log Methods ---
     def _log(self, message, tag=None):
         """Menambahkan pesan ke antrian log."""
         self.log_queue.put((message, tag))
-    
+
     def _process_log_queue(self):
         """Memproses antrian log dan menampilkan pesan."""
         try:
@@ -1503,7 +1503,7 @@ Konfigurasi perilaku aplikasi:
         finally:
             if self.winfo_exists():
                 self._log_queue_after_id = self.after(100, self._process_log_queue)
-    
+
     def _should_display_in_gui(self, message):
         """Memeriksa apakah pesan harus ditampilkan di GUI log."""
         # Pola regex untuk pesan yang diizinkan
@@ -1518,6 +1518,8 @@ Konfigurasi perilaku aplikasi:
             r"^✓ .+\.\w+$",          # Matches success WITHOUT rename
             r"^✗ .+\.\w+ \(.*\)$",   # Matches failure messages like ✗ filename (reason)
             r"^✗ .+\.\w+$",
+            r"^⚠  .+\.\w+$",
+            r"^⚠ .+\.\w+ \(.*\)$",
             #r"^⨯ .+$",               # Matches failure messages starting with ⨯
             r"^Cool-down \d+ detik dulu ngabbbb\.\.\.$", # Match the actual message format
             # r"^Menyimpan pengaturan\.\.\.$", # Commented out as it might be too verbose
@@ -1560,7 +1562,7 @@ Konfigurasi perilaku aplikasi:
                 elif message == "=========================================":
                     self._in_summary_block = False
                 return True
-        
+
         # Allow any message if we are inside the summary block
         if self._in_summary_block:
              # Check if this line marks the end of the summary
@@ -1576,19 +1578,21 @@ Konfigurasi perilaku aplikasi:
         if not self._should_display_in_gui(message):
             # Reset summary flag if message is outside summary block logic but flag is true
             # This handles cases where the end marker might be missed or processing stops mid-summary
-            if self._in_summary_block and not message.startswith("="): 
+            if self._in_summary_block and not message.startswith("="):
                  self._in_summary_block = False
             return # Jangan tampilkan pesan ini di GUI
 
         try:
             self.log_text.configure(state=tk.NORMAL)
-            
+
             # Auto-detect tag based on message content (only for displayed messages)
             if tag is None:
                 if message.startswith("✓"):
                     tag = "success"
                 elif message.startswith("✗"):
                     tag = "error"
+                elif message.startswith("⚠"): # Detect warning symbol
+                    tag = "warning"
                 elif message.startswith("⋯"):
                     tag = "info"
                 elif "Error" in message or "Gagal" in message:
@@ -1599,21 +1603,21 @@ Konfigurasi perilaku aplikasi:
                     tag = "cooldown"
                 elif "===" in message:
                     tag = "bold"
-            
+
             # Add timestamp for normal messages
-            if not message.startswith((" ✓", " ⋯", " ✗", " ⊘")) or message.startswith("==="):
+            if not message.startswith((" ✓", " ⋯", " ✗", " ⊘", " ⚠")) or message.startswith("==="): # Added warning symbol check
                 timestamp = time.strftime("%H:%M:%S")
                 self.log_text._textbox.insert(tk.END, f"[{timestamp}] ", "")
                 self.log_text._textbox.insert(tk.END, f"{message}\n", tag if tag else "")
             else:
                 self.log_text._textbox.insert(tk.END, f"{message}\n", tag if tag else "")
-            
+
             # Auto scroll to end
             self.log_text._textbox.see(tk.END)
             self.log_text.configure(state=tk.DISABLED)
         except tk.TclError:
             pass
-    
+
     def _clear_log(self):
         """Membersihkan isi log text box."""
         try:
@@ -1622,30 +1626,30 @@ Konfigurasi perilaku aplikasi:
             self.log_text.configure(state=tk.DISABLED)
         except tk.TclError:
             pass
-    
+
     def on_closing(self):
         """Callback saat window ditutup."""
         try:
             self._save_settings()
             self._save_cache()
-            
+
             if self.processing_thread and self.processing_thread.is_alive():
-                if tk.messagebox.askyesno("Keluar", 
+                if tk.messagebox.askyesno("Keluar",
                         "Proses sedang berjalan. Yakin ingin keluar?\nProses akan dihentikan."):
                     self.stop_event.set()
-                    
+
                     # Set global flag
                     from src.api.gemini_api import set_force_stop
                     set_force_stop()
-                    
+
                     self.after(300, self._force_close)
                 return
-                
+
             self._force_close()
         except Exception as e:
             print(f"Error saat menutup aplikasi: {e}")
             self.destroy()
-    
+
     def _force_close(self):
         """Tutup aplikasi secara paksa."""
         if hasattr(self, '_log_queue_after_id') and self._log_queue_after_id:
