@@ -127,7 +127,7 @@ def extract_frames_from_video(video_path, output_folder, num_frames=3, stop_even
         log_message(f"  Detail error: {traceback.format_exc()}")
         return None
 
-def process_video(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True):
+def process_video(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
     """
     Memproses file video: mengekstrak frame, mendapatkan metadata, dan menulis metadata ke video.
 
@@ -137,6 +137,9 @@ def process_video(input_path, output_dir, api_keys, stop_event, auto_kategori_en
         api_keys: List API key Gemini
         stop_event: Event threading untuk menghentikan proses
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
+        selected_model: Model yang dipilih untuk diproses, atau None untuk auto-rotasi
+        keyword_count: Jumlah kata kunci yang diambil dari hasil API
+        priority: Prioritas pemrosesan
 
     Returns:
         Tuple (status, metadata, output_path):
@@ -248,7 +251,7 @@ def process_video(input_path, output_dir, api_keys, stop_event, auto_kategori_en
         return "failed_frames", None, None
 
     # Dapatkan metadata dari API Gemini, gunakan prompt khusus video
-    metadata_result = get_gemini_metadata(best_frame, api_key, stop_event, use_video_prompt=True)
+    metadata_result = get_gemini_metadata(best_frame, api_key, stop_event, use_video_prompt=True, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
 
     # Bersihkan SEMUA frame (original yang tidak terkompres + hasil kompresi) setelah API call
     # extracted_frames might contain originals if compression failed or wasn't needed

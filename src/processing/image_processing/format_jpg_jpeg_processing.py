@@ -25,7 +25,7 @@ from src.metadata.exif_writer import write_exif_with_exiftool
 from src.metadata.csv_exporter import write_to_platform_csvs
 from src.utils.file_utils import ensure_unique_title
 
-def process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True):
+def process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
     """
     Memproses file JPG/JPEG: mengompres jika perlu, mendapatkan metadata, dan menulis EXIF.
     
@@ -35,6 +35,9 @@ def process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori
         api_keys: List API key Gemini
         stop_event: Event threading untuk menghentikan proses
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
+        selected_model: Model pemrosesan gambar (None untuk auto-rotasi)
+        keyword_count: Jumlah kata kunci untuk diambil dari hasil API
+        priority: Prioritas pemrosesan
         
     Returns:
         Tuple (status, metadata, output_path):
@@ -97,7 +100,7 @@ def process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori
         return "stopped", None, None
     
     # Dapatkan metadata dari API Gemini
-    metadata_result = get_gemini_metadata(path_for_api, api_key, stop_event)
+    metadata_result = get_gemini_metadata(path_for_api, api_key, stop_event, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
     
     # Bersihkan file kompresi sementara
     for temp_file in temp_files_created:

@@ -32,6 +32,7 @@ import tkinter.messagebox # Added for checks below
 import customtkinter as ctk
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
+import importlib
 
 from src.utils.logging import log_message
 from src.utils.file_utils import read_api_keys, is_writable_directory
@@ -49,7 +50,7 @@ from src.utils.system_checks import (
 from src.metadata.exif_writer import check_exiftool_exists # Keep this import for the check
 
 # Konstanta aplikasi
-APP_VERSION = "2.1.0" # Updated version
+APP_VERSION = "3.0.0" # Updated version
 CONFIG_FILE = "config.json"
 
 class MetadataApp(ctk.CTk):
@@ -149,7 +150,7 @@ class MetadataApp(ctk.CTk):
         self._actual_api_keys = [] # Store the real keys internally
         self.show_api_keys_var = tk.BooleanVar(value=False) # Variable for the toggle checkbox
         self.console_visible_var = tk.BooleanVar(value=True) # Variable for console visibility toggle
-        self.progress_text_var = tk.StringVar(value="Proses: Siap memulai")
+        # self.progress_text_var = tk.StringVar(value="Proses: Siap memulai")  # HAPUS
 
         # Counters
         self.processed_count = 0
@@ -178,6 +179,18 @@ class MetadataApp(ctk.CTk):
         self.auto_kategori_var = tk.BooleanVar(value=False)
         self.auto_foldering_var = tk.BooleanVar(value=False)
         self._needs_initial_save = False # Flag to track if initial save is needed
+
+        # Tambahan variabel state untuk kolom tengah (PASTIKAN INI SEBELUM self._create_ui())
+        try:
+            gemini_api = importlib.import_module('src.api.gemini_api')
+            gemini_models = list(getattr(gemini_api, 'GEMINI_MODELS', []))
+        except Exception:
+            gemini_models = []
+        self.available_models = ["Auto Rotasi"] + [m for m in gemini_models if m not in ("Auto Rotasi",)]
+        self.model_var = tk.StringVar(value="Auto Rotasi")
+        self.keyword_count_var = tk.StringVar(value="49")
+        self.priority_var = tk.StringVar(value="Kualitas")
+        self.available_priorities = ["Kualitas", "Seimbang", "Cepat"]
 
         # Inisialisasi UI
         self._create_ui()
@@ -304,7 +317,7 @@ class MetadataApp(ctk.CTk):
         main_panel.grid_rowconfigure(2, weight=0)
         main_panel.grid_rowconfigure(3, weight=1)
 
-        # Frame untuk settings, center, status
+        # Frame untuk settings, center, status (sekarang: settings, tengah custom, kanan toggle)
         settings_center_status_frame = ctk.CTkFrame(main_panel, fg_color="transparent")
         settings_center_status_frame.grid(row=2, column=0, padx=5, pady=5, sticky="nsew")
         settings_center_status_frame.grid_columnconfigure(0, weight=1)
@@ -317,14 +330,14 @@ class MetadataApp(ctk.CTk):
         # Frame API
         self._create_api_frame(main_panel)
 
-        # Frame options
+        # Frame options (kolom kiri)
         self._create_options_frame(settings_center_status_frame)
 
-        # Frame checkbox
-        self._create_checkbox_frame(settings_center_status_frame)
+        # Frame custom kolom tengah
+        self._create_center_frame(settings_center_status_frame)
 
-        # Frame status
-        self._create_status_frame(settings_center_status_frame)
+        # Frame checkbox (toggle) di kolom kanan (2)
+        self._create_checkbox_frame(settings_center_status_frame)
 
         # Frame log
         self._create_log_frame(main_panel)
@@ -450,67 +463,58 @@ Semakin banyak API key, semakin cepat proses batch.
         settings_header_tooltip = """
 Konfigurasi perilaku aplikasi:
 
-- Workers: Jumlah thread paralel untuk\n  memproses file (Misal: 1-10). Lebih\n  banyak worker mempercepat proses,\n  namun juga meningkatkan\n  frekuensi penggunaan API.
+- Keyword: Jumlah keyword/tags yang\n diambil dari hasil API (min 8, maks 49)
 
-- Delay (s): Jeda waktu (detik) antar\n  permintaan ke API. Berguna untuk\n  mencegah pembatasan (rate limit) API.
+- Workers: Jumlah thread paralel untuk\n  memproses file (Misal: 1-10). 
+
+- Delay (s): Jeda waktu (detik) antar\n  permintaan ke API. 
 
 - Rename Files: Jika aktif, nama file\n  akan diubah otomatis berdasarkan\n  metadata 'judul' dari API.
 
-- Auto Kategori: Jika aktif, otomatis\n  mengkategorikan file sesuai metadata\n  dari API. (Hasilnya mungkin belum\n  sempurna, harap periksa kembali).
+- Auto Kategori: Jika aktif, otomatis\n  mengkategorikan file sesuai metadata\n  dari API. 
 
-- Auto Foldering: Jika aktif, file yang\n  diproses akan otomatis dimasukkan ke\n  dalam folder berdasarkan tipenya\n  (misal: Images, Vectors, Video).
+- Auto Foldering: Jika aktif, file yang\n  diproses akan otomatis dimasukkan ke\n  dalam folder berdasarkan tipenya\n  
 
 *NB: Pengaturan ini disimpan secara\n        otomatis untuk sesi berikutnya.
 """
         settings_header = self._create_header_with_help(options_frame, "Pengaturan", settings_header_tooltip, font=ctk.CTkFont(size=15, weight="bold"))
         settings_header.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="wns")
 
-        theme_label = ctk.CTkLabel(options_frame, text="Tema:", font=self.font_normal)
-        theme_label.grid(row=1, column=0, padx=10, pady=(5, 5), sticky="wns")
+        # Baris 1: Keyword
+        ctk.CTkLabel(options_frame, text="Keyword:", font=self.font_normal).grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        self.keyword_entry = ctk.CTkEntry(options_frame, textvariable=self.keyword_count_var, width=100, justify='center', font=self.font_normal)
+        self.keyword_entry.grid(row=1, column=1, padx=5, pady=5, sticky="wns")
+        
 
-        self.theme_var = tk.StringVar(value="dark")
-        self.theme_dropdown = ctk.CTkComboBox(options_frame, values=self.available_themes, variable=self.theme_var, command=self._change_theme, width=100, justify='center')
-        self.theme_dropdown.grid(row=1, column=1, padx=5, pady=(5, 5), sticky="w")
-
+        # Baris 2: Workers
         ctk.CTkLabel(options_frame, text="Workers:", font=self.font_normal).grid(row=2, column=0, padx=10, pady=5, sticky="w")
-
-        self.workers_entry = ctk.CTkEntry(options_frame, textvariable=self.workers_var,width=100, justify='center', font=self.font_normal)
+        self.workers_entry = ctk.CTkEntry(options_frame, textvariable=self.workers_var, width=100, justify='center', font=self.font_normal)
         self.workers_entry.grid(row=2, column=1, padx=5, pady=5, sticky="wns")
 
+        # Baris 3: Delay
         ctk.CTkLabel(options_frame, text="Delay (s):", font=self.font_normal).grid(row=3, column=0, padx=10, pady=5, sticky="wns")
-
-        self.delay_entry = ctk.CTkEntry(options_frame, textvariable=self.delay_var,width=100, justify='center', font=self.font_normal)
+        self.delay_entry = ctk.CTkEntry(options_frame, textvariable=self.delay_var, width=100, justify='center', font=self.font_normal)
         self.delay_entry.grid(row=3, column=1, padx=5, pady=5, sticky="wns")
 
     def _create_checkbox_frame(self, parent):
         """Membuat frame untuk checkbox."""
         checkbox_frame = ctk.CTkFrame(parent, corner_radius=8)
-        checkbox_frame.grid(row=0, column=1, padx=3, pady=0, sticky="wes")
+        # Geser ke kolom kanan (2)
+        checkbox_frame.grid(row=0, column=2, padx=3, pady=0, sticky="nesw")
         checkbox_frame.grid_columnconfigure(0, weight=1)
 
+        # Baris 1: kosong
+        # Baris 2: Rename
         self.rename_switch = ctk.CTkSwitch(checkbox_frame, text="Rename File?", variable=self.rename_files_var, font=self.font_normal)
-        self.rename_switch.grid(row=0, column=0, padx=10, pady=8, sticky="w") # Adjusted sticky to 'w'
-
+        self.rename_switch.grid(row=2, column=0, padx=10, pady=8, sticky="w")
+        # Baris 3: Auto Kategori
         self.auto_kategori_switch = ctk.CTkSwitch(checkbox_frame, text="Auto Kategori?", variable=self.auto_kategori_var, font=self.font_normal)
-        self.auto_kategori_switch.grid(row=1, column=0, padx=10, pady=8, sticky="w") # Adjusted sticky to 'w'
-
+        self.auto_kategori_switch.grid(row=3, column=0, padx=10, pady=8, sticky="w")
+        # Baris 4: Auto Foldering
         self.auto_foldering_switch = ctk.CTkSwitch(checkbox_frame, text="Auto Foldering?", variable=self.auto_foldering_var, font=self.font_normal)
-        self.auto_foldering_switch.grid(row=2, column=0, padx=10, pady=8, sticky="w") # Adjusted sticky to 'w'
+        self.auto_foldering_switch.grid(row=4, column=0, padx=10, pady=8, sticky="w")
 
-    def _create_status_frame(self, parent):
-        """Membuat frame untuk status proses."""
-        status_frame_new = ctk.CTkFrame(parent, corner_radius=8)
-        status_frame_new.grid(row=0, column=2, padx=(3, 0), pady=0, sticky="nw")
-        status_frame_new.grid_columnconfigure(0, weight=1)
-        status_frame_new.grid_rowconfigure(1, weight=1)
-
-        ctk.CTkLabel(status_frame_new, text="Status", font=self.font_large).grid(row=0, column=0, padx=10, pady=5, sticky="w")
-
-        ctk.CTkLabel(status_frame_new, textvariable=self.progress_text_var, font=self.font_medium).grid(row=1, column=0, padx=10, pady=5, sticky="w")
-
-        self.progress_bar = ctk.CTkProgressBar(status_frame_new, orientation="horizontal", height=65, width=130, corner_radius=0)
-        self.progress_bar.grid(row=2, column=0, padx=10, pady=(5, 10), sticky="w")
-        self.progress_bar.set(0)
+        ctk.CTkLabel(checkbox_frame, text="").grid(row=0, column=0, pady=5)
 
     def _create_log_frame(self, parent):
         """Membuat frame untuk log."""
@@ -611,6 +615,28 @@ Konfigurasi perilaku aplikasi:
         ToolTip(help_icon, tooltip_text)
 
         return header_frame
+
+    def _create_center_frame(self, parent):
+        """Membuat frame untuk kolom tengah (tema, model, prioritas)."""
+        center_frame = ctk.CTkFrame(parent, corner_radius=8)
+        center_frame.grid(row=0, column=1, padx=3, pady=0, sticky="nsew")
+        center_frame.grid_columnconfigure(1, weight=1)
+
+        # Baris 1: kosong
+        # Baris 2: Tema
+        self.theme_var = tk.StringVar(value="dark")
+        self.theme_dropdown = ctk.CTkComboBox(center_frame, values=self.available_themes, variable=self.theme_var, command=self._change_theme, width=120, justify='center')
+        ctk.CTkLabel(center_frame, text="Tema:", font=self.font_normal).grid(row=2, column=0, padx=10, pady=5, sticky="w")
+        self.theme_dropdown.grid(row=2, column=1, padx=5, pady=5, sticky="ns")
+        # Baris 3: Model
+        self.model_dropdown = ctk.CTkComboBox(center_frame, values=self.available_models, variable=self.model_var, width=120, justify='center')
+        ctk.CTkLabel(center_frame, text="Model:", font=self.font_normal).grid(row=3, column=0, padx=10, pady=5, sticky="w")
+        self.model_dropdown.grid(row=3, column=1, padx=5, pady=5, sticky="ns")
+        # Baris 4: Prioritas
+        ctk.CTkLabel(center_frame, text="Prioritas:", font=self.font_normal).grid(row=4, column=0, padx=10, pady=5, sticky="wns")
+        self.priority_dropdown = ctk.CTkComboBox(center_frame, values=self.available_priorities, variable=self.priority_var, width=120, justify='center')
+        self.priority_dropdown.grid(row=4, column=1, padx=5, pady=5, sticky="ns")
+        ctk.CTkLabel(center_frame, text="").grid(row=0, column=0, pady=5)
 
     # --- Analytics Methods ---
     def _init_analytics(self):
@@ -983,6 +1009,22 @@ Konfigurasi perilaku aplikasi:
                              # Update switch text after setting initial state
                              self.after(50, self._update_console_toggle_text) # Use 'after' to ensure switch exists
 
+                        # Tambahan variabel state untuk kolom tengah
+                        self.model_var.set(settings.get("model", "Auto Rotasi"))
+                        self.keyword_count_var.set(str(settings.get("keyword_count", "49")))
+                        self.priority_var.set(settings.get("priority", "Kualitas"))
+                        self.available_models = [
+                            "Auto Rotasi",
+                            "gemini-2.0-flash",
+                            "gemini-2.0-flash-lite",
+                            "gemini-1.5-flash-8b",
+                            "gemini-1.5-flash",
+                            "gemini-1.5-pro",  
+                            "gemini-2.5-flash-preview-04-17",
+                            "gemini-2.5-pro-preview-03-25"
+                        ]
+                        self.available_priorities = ["Kualitas", "Seimbang", "Cepat"]
+
                 except Exception as inner_e:
                     self._log(f"Error saat membaca file config: {inner_e}", "error")
             else:
@@ -1019,6 +1061,9 @@ Konfigurasi perilaku aplikasi:
             "last_saved": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "analytics_enabled": self.analytics_enabled_var.get(),
             "installation_id": self.installation_id.get(),
+            "model": self.model_var.get(),
+            "keyword_count": self.keyword_count_var.get(),
+            "priority": self.priority_var.get(),
         }
 
         try:
@@ -1224,7 +1269,7 @@ Konfigurasi perilaku aplikasi:
         self.start_time = time.monotonic()
         self.start_button.configure(state=tk.DISABLED, text="Memproses....")
         self.stop_button.configure(state=tk.NORMAL)
-        self.progress_text_var.set(f"Proses: Memulai....")
+        # self.progress_text_var.set(f"Proses: Memulai....")  # HAPUS
 
         # Log begin
         self._log("Kompresi otomatis aktif untuk file besar", "warning")
@@ -1240,12 +1285,25 @@ Konfigurasi perilaku aplikasi:
                 "auto_foldering": auto_foldering_enabled
             })
 
+        # Validasi jumlah keyword
+        try:
+            keyword_count = int(self.keyword_count_var.get().strip() or "49")
+            if keyword_count < 8:
+                keyword_count = 8
+            elif keyword_count > 49:
+                keyword_count = 49
+            self.keyword_count_var.set(str(keyword_count))
+        except ValueError:
+            self.keyword_count_var.set("49")
+            keyword_count = 49
+        # Ambil prioritas
+        priority = self.priority_var.get() if hasattr(self, 'priority_var') else "Kualitas"
         # Mulai thread processing
         self.processing_thread = threading.Thread(
             target=self._run_processing,
             args=(input_dir, output_dir, current_api_keys,
                   rename_enabled, delay_sec, num_workers,
-                  auto_kategori_enabled, auto_foldering_enabled),
+                  auto_kategori_enabled, auto_foldering_enabled, self.model_var.get(), str(keyword_count), priority),
             daemon=True
         )
         self.processing_thread.start()
@@ -1259,6 +1317,9 @@ Konfigurasi perilaku aplikasi:
         self.auto_foldering_switch.configure(state=tk.DISABLED)
         self.api_textbox.configure(state=tk.DISABLED)
         self.theme_dropdown.configure(state=tk.DISABLED)
+        self.model_dropdown.configure(state=tk.DISABLED)
+        self.priority_dropdown.configure(state=tk.DISABLED)
+        self.keyword_entry.configure(state=tk.DISABLED)
         self.workers_entry.configure(state=tk.DISABLED)
         self.delay_entry.configure(state=tk.DISABLED)
         self.input_entry.configure(state=tk.DISABLED)
@@ -1269,35 +1330,32 @@ Konfigurasi perilaku aplikasi:
         self.input_button.configure(state=tk.DISABLED)
         self.output_button.configure(state=tk.DISABLED)
 
-    def _run_processing(self, input_dir, output_dir, api_keys, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled):
+    def _run_processing(self, input_dir, output_dir, api_keys, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled, selected_model=None, keyword_count="49", priority="Kualitas"):
         """Thread worker untuk pemrosesan batch."""
-        # Import path yang ditemukan saat thread dimulai
         from src.utils.system_checks import GHOSTSCRIPT_PATH as gs_path_found
         log_message(f"Ghostscript path passed to worker thread: {gs_path_found}", "info")
 
         try:
-            # Lakukan pemrosesan batch, teruskan path GS
             result = batch_process_files(
                 input_dir=input_dir,
                 output_dir=output_dir,
                 api_keys=api_keys,
-                ghostscript_path=gs_path_found, # Teruskan path GS
+                ghostscript_path=gs_path_found,
                 rename_enabled=rename_enabled,
                 delay_seconds=delay_seconds,
                 num_workers=num_workers,
                 auto_kategori_enabled=auto_kategori_enabled,
                 auto_foldering_enabled=auto_foldering_enabled,
-                progress_callback=self._update_progress,
-                stop_event=self.stop_event
+                selected_model=selected_model,
+                keyword_count=keyword_count,
+                priority=priority
             )
 
-            # Update counter dari hasil
             self.processed_count = result.get("processed_count", 0)
             self.failed_count = result.get("failed_count", 0)
             self.skipped_count = result.get("skipped_count", 0)
             self.stopped_count = result.get("stopped_count", 0)
 
-            # Kirim analytics jika diaktifkan
             if self.analytics_enabled_var.get():
                 total_files = result.get("total_files", 0)
                 self._send_analytics_event("process_completed", {
@@ -1310,31 +1368,25 @@ Konfigurasi perilaku aplikasi:
                 })
 
             # Menentukan pesan akhir berdasarkan hasil
-            final_message = "Terjadi error tidak dikenal." # Default message
+            final_message = "Terjadi error tidak dikenal."
 
             if result.get("status") == "no_files":
                 final_message = "Tidak ada file yang dapat diproses ditemukan di folder input."
-                self.progress_text_var.set("Proses: Tidak ada file")
-                # Tampilkan messagebox juga untuk kejelasan
+                # self.progress_text_var.set("Proses: Tidak ada file")  # HAPUS
                 self.after(100, lambda msg=final_message: tk.messagebox.showinfo("Info Proses", msg))
-                # Tidak perlu tampilkan completion manager jika tidak ada file
                 self.after(200, self._reset_ui_after_processing)
             elif self.stop_event.is_set():
                 final_message = "Pemrosesan dihentikan oleh pengguna."
-                self.progress_text_var.set("Proses: Dihentikan")
-                # Tampilkan completion manager meskipun dihentikan
+                # self.progress_text_var.set("Proses: Dihentikan")  # HAPUS
                 self.after(100, lambda: self.completion_manager.show_completion_message())
                 self.after(200, self._reset_ui_after_processing)
-            else: # Proses selesai secara normal (meskipun mungkin 0 file berhasil)
+            else:
                 final_message = "Pemrosesan selesai!"
                 final_completed = self.processed_count + self.failed_count + self.skipped_count + self.stopped_count
-                total_files = result.get("total_files", final_completed) # Ambil total dari hasil
-                self.progress_text_var.set(f"Proses: {final_completed}/{total_files} file selesai.")
-                # Tampilkan completion manager
+                total_files = result.get("total_files", final_completed)
+                # self.progress_text_var.set(f"Proses: {final_completed}/{total_files} file selesai.")  # HAPUS
                 self.after(100, lambda: self.completion_manager.show_completion_message())
                 self.after(200, self._reset_ui_after_processing)
-
-            # Catatan: Logika pesan akhir bisa disesuaikan lagi jika perlu
 
         except Exception as e:
             import traceback
@@ -1344,24 +1396,19 @@ Konfigurasi perilaku aplikasi:
 
     def _update_progress(self, current, total):
         """Update progress bar dan teks status."""
-        progress_value = 0 if total == 0 else current / total
-        self.progress_bar.set(progress_value)
-
-        # Update status text
-        progress_percent = (current / total) * 100 if total > 0 else 0
-        self.progress_text_var.set(f"Proses: {current}/{total} ({progress_percent:.0f}%)")
-
+        # progress_value = 0 if total == 0 else current / total  # HAPUS
+        # self.progress_bar.set(progress_value)  # HAPUS
+        # progress_percent = (current / total) * 100 if total > 0 else 0  # HAPUS
+        # self.progress_text_var.set(f"Proses: {current}/{total} ({progress_percent:.0f}%)")  # HAPUS
         # Hitung dan update waktu tersisa
-        if self.start_time and current > 0 and current < total:
-            elapsed_time = time.monotonic() - self.start_time
-            time_per_file = elapsed_time / current
-            remaining_files = total - current
-            time_left = time_per_file * remaining_files
-
-            # elapsed_str = self._format_time(elapsed_time)
-            # left_str = self._format_time(time_left)
-            # self._log(f"Progres: {current}/{total} - sisa waktu: {left_str}", "info")
-
+        # if self.start_time and current > 0 and current < total:
+        #     elapsed_time = time.monotonic() - self.start_time
+        #     time_per_file = elapsed_time / current
+        #     remaining_files = total - current
+        #     time_left = time_per_file * remaining_files
+        #     # elapsed_str = self._format_time(elapsed_time)
+        #     # left_str = self._format_time(time_left)
+        #     # self._log(f"Progres: {current}/{total} - sisa waktu: {left_str}", "info")
         self.update_idletasks()
 
     def _format_time(self, seconds):
@@ -1432,30 +1479,18 @@ Konfigurasi perilaku aplikasi:
         """Reset UI ke kondisi awal setelah pemrosesan selesai."""
         try:
             self._stop_request_time = None
-
-            # Reset flag
             from src.api.gemini_api import reset_force_stop
             reset_force_stop()
-
-            # Reset UI
-            self.progress_text_var.set("Proses: Siap memulai")
+            # self.progress_text_var.set("Proses: Siap memulai")  # HAPUS
             self.start_button.configure(state=tk.NORMAL, text="Mulai Proses")
             self.stop_button.configure(state=tk.DISABLED, text="Hentikan")
-            self.progress_bar.set(0)
-
-            # Reset state
+            # self.progress_bar.set(0)  # HAPUS
             self.processing_thread = None
             self.start_time = None
             self.stop_event.clear()
-
-            # Update
             self.update_idletasks()
-
-            # Simpan state
             self._save_cache()
             self._save_settings()
-
-            # Re-enable UI
             self.start_button.configure(state=tk.NORMAL)
             self.clear_button.configure(state=tk.NORMAL)
             self.rename_switch.configure(state=tk.NORMAL)
@@ -1463,6 +1498,9 @@ Konfigurasi perilaku aplikasi:
             self.auto_foldering_switch.configure(state=tk.NORMAL)
             self.workers_entry.configure(state=tk.NORMAL)
             self.theme_dropdown.configure(state=tk.NORMAL)
+            self.model_dropdown.configure(state=tk.NORMAL)
+            self.priority_dropdown.configure(state=tk.NORMAL)
+            self.keyword_entry.configure(state=tk.NORMAL)
             self.delay_entry.configure(state=tk.NORMAL)
             self.input_entry.configure(state=tk.NORMAL)
             self.output_entry.configure(state=tk.NORMAL)
@@ -1514,6 +1552,7 @@ Konfigurasi perilaku aplikasi:
             r"^Output CSV akan disimpan di subfolder: metadata_csv$",
             r"^ → Memproses .+\.\w+\.\.\.$",
             r"^Batch \d+: Menunggu hasil \d+ file\.\.\.$",
+            r"^Batch \d+ \(\d+/\d+\): Menunggu hasil \d+ file\.\.\.$",  # Tambahkan pola baru agar log batch counting muncul
             r"^✓ .+\.\w+ → .+\.\w+$", # Matches success WITH rename
             r"^✓ .+\.\w+$",          # Matches success WITHOUT rename
             r"^✗ .+\.\w+ \(.*\)$",   # Matches failure messages like ✗ filename (reason)

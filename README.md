@@ -31,6 +31,10 @@ RJ Auto Metadata is a powerful desktop application built with Python and CustomT
 *   **Extensive Customization & Configuration:**
     *   **Folder Selection:** Dedicated input and output folder paths. Ensures input/output are distinct.
     *   **API Key Management:** Text area for multiple Gemini API keys (one per line). Supports loading/saving keys to/from `.txt` files. Option to show/hide keys in the UI.
+    *   **API Model Selection:** Choose a specific Gemini model (e.g., `gemini-1.5-flash`, `gemini-1.5-pro`) or use automatic rotation (`Auto Rotasi`) via a dropdown.
+    *   **Prompt Priority:** Select the desired trade-off between result detail and speed (`Kualitas`, `Seimbang`, `Cepat`) via a dropdown, using different underlying prompts.
+        *   _Note:_ Prompt length affects API token usage. Longer prompts (`Kualitas`) consume more input tokens per request, potentially hitting token limits (TPM/TPD) faster. Shorter prompts (`Cepat`) are more token-efficient.
+    *   **Keyword Count:** Specify the maximum number of keywords to request from the API (min 8, max 49).
     *   **Performance Tuning:** Adjust the number of `Workers` and `Delay (s)` between API calls.
     *   **File Handling Options:**
         *   `Rename File?`: Automatically renames output files using the generated title.
@@ -39,9 +43,9 @@ RJ Auto Metadata is a powerful desktop application built with Python and CustomT
     *   **Appearance:** Choose between `Light`, `Dark`, or `System` themes, powered by CustomTkinter.
 *   **Intuitive User Interface (`src/ui/app.py`):**
     *   Built with CustomTkinter for a modern look and feel.
-    *   Clear sections for folder selection, API keys, options, status, and logging.
-    *   Real-time progress bar and status updates during processing.
-    *   Detailed logging area showing processing steps, successes, failures, and warnings.
+    *   Clear sections for folder selection, API keys, and a refined 3-column layout for options (Inputs Left, Dropdowns Middle, Toggles Right).
+    *   Real-time detailed logging area showing processing steps, successes, failures, warnings, and batch progress `(x/x)`.
+    *   Removed visual status bar; all progress feedback is now in the log.
     *   Tooltips (?) provide help for various settings and buttons.
     *   Completion dialog summarizes the results after processing.
 *   **Persistent Settings:**
@@ -127,7 +131,7 @@ There are two main ways to install and run RJ Auto Metadata: using the provided 
 
 This is the easiest way to get started on Windows.
 
-1.  **Download Installer:** Go to the [Releases page](https://github.com/riiicil/RJ-Auto-Metadata-v2.0.0/releases) on GitHub. Download the `v2.x.x.zip` file from the latest release assets.
+1.  **Download Installer:** Go to the [Releases page](https://github.com/riiicil/RJ-Auto-Metadata/releases) on GitHub. Download the `v3.x.x.zip` file from the latest release assets.
 2.  **Extract and run Installer:** Double-click the downloaded `setup.exe`.
 3.  **Follow Prompts:** Follow the on-screen instructions provided by the installer. It will guide you through the process, including installing necessary components like the GTK3 Runtime (required for SVG files). Accept the prompts to install these components when asked.
 4.  **Launch:** Once installation is complete, you can launch RJ Auto Metadata from the Start Menu shortcut or the optional desktop icon.
@@ -167,6 +171,9 @@ Stores settings automatically (usually in `Documents/RJAutoMetadata` on Windows)
 *   `rename`, `auto_kategori`, `auto_foldering`: File handling toggles (booleans).
 *   `api_keys`: List of your Gemini API keys.
 *   `show_api_keys`: UI visibility state (boolean).
+*   `model`: Selected API model (e.g., "gemini-1.5-flash", "Auto Rotasi").
+*   `priority`: Selected prompt priority ("Kualitas", "Seimbang", "Cepat").
+*   `keyword_count`: Maximum keywords requested (string, e.g., "49").
 *   `theme`: "light", "dark", or "system".
 *   `installation_id`: Anonymous analytics ID.
 *   `analytics_enabled`: Analytics toggle state.
@@ -175,12 +182,15 @@ Stores settings automatically (usually in `Documents/RJAutoMetadata` on Windows)
 
 *   **Input/Output Folders:** Must be valid, different directories.
 *   **API Keys:** One key per line. Load/Save/Delete/Show-Hide options available.
+*   **Keyword:** Max keywords from API (8-49).
 *   **Workers:** Threads (1-10+). More workers = faster, but more API usage.
 *   **Delay (s):** Pause between API calls per worker (avoids rate limits).
+*   **Theme:** Visual style selection.
+*   **Model:** Select specific Gemini model or Auto Rotasi.
+*   **Prioritas:** Choose prompt detail level (Kualitas/Seimbang/Cepat).
 *   **Rename File?:** Renames output file to `Generated Title.ext`.
 *   **Auto Kategori?:** Applies experimental categories.
 *   **Auto Foldering?:** Sorts output into `Images/`, `Vectors/`, `Videos/`.
-*   **Theme:** Visual style selection.
 
 ### 6.3. Analytics
 
@@ -195,15 +205,42 @@ Stores settings automatically (usually in `Documents/RJAutoMetadata` on Windows)
     *   *Optional:* If you prefer no console window, navigate to the installation directory and run `RJ Auto Metadata No Console.exe` directly.
 2.  **Set Folders:** Use "Browse" for **Input** & **Output** directories (must be different!).
 3.  **Enter API Keys:** Paste keys (one per line) or use "Load". Manage with Save/Delete/Show-Hide.
-4.  **Adjust Settings (Optional):** Tune `Workers`, `Delay`, Toggles (`Rename?`, etc.), `Theme`.
+4.  **Adjust Settings (Optional):** Tune `Keyword`, `Workers`, `Delay`, `Theme`, `Model`, `Prioritas`, Toggles (`Rename?`, etc.).
 5.  **Initiate Processing:** Click **"Mulai Proses"**. Buttons will update state.
-6.  **Monitor:** Watch "Status" (progress bar/text) & "Log" (details, success, failure).
+6.  **Monitor:** Watch the **"Log"** area for detailed steps, batch progress `(x/x)`, success/failure messages.
 7.  **Interrupt (Optional):** Click **"Hentikan"** to stop gracefully (may take a moment).
 8.  **Review Results:** Check summary dialog & Output Folder for processed files.
 9.  **Clear Log (Optional):** Click **"Clear Log"** for a clean slate.
 10. **Exit:** Close window (settings save automatically).
 
-## 8. Supported File Formats
+## 8. Gemini API Rate Limits (Free User)
+
+When using the Google Gemini API, your usage is subject to several rate limits to ensure fair and stable access for all users. Exceeding any of these limits will result in a rate limit error from the API.
+
+**Rate limits are measured across four main dimensions:**
+
+- **Requests per minute (RPM):** Maximum number of API requests allowed per minute.
+- **Requests per day (RPD):** Maximum number of API requests allowed per day.
+- **Tokens per minute (TPM):** Maximum number of tokens processed per minute.
+- **Tokens per day (TPD):** Maximum number of tokens processed per day.
+
+Your usage is evaluated against each limit independently. If you exceed any one of them (for example, RPM), further requests will be blocked until your usage drops below the threshold, even if you have not reached the other limits. These limits are applied per project, not per API key.
+
+**Limits vary by model and may change over time.** Here are some example limits:
+
+| Model                              | RPM | TPM      | RPD  |
+|-------------------------------------|-----|----------|------|
+| Gemini 2.5 Flash Preview 04-17      | 10  | 250,000  | 500  |
+| Gemini 2.5 Pro Experimental 03-25   | 5   | 250,000  | 25   |
+| Gemini 2.0 Flash                    | 15  | 1,000,000| 1,500|
+| Gemini 2.0 Flash-Lite               | 30  | 1,000,000| 1,500|
+| Gemini 1.5 Flash-pro                | 2   | 250,000  |  50  |
+| Gemini 1.5 Flash                    | 15  | 250,000  | 500  |
+| Gemini 1.5 Flash-8b                 | 15  | 250,000  | 500  |
+
+> **Note:** Rate limits are more restrictive for experimental and preview models. Always refer to the [official Gemini API documentation](https://ai.google.dev/gemini-api/docs/rate-limits) for the most up-to-date information.
+
+## 9. Supported File Formats
 
 *   **Images:** `.jpg`, `.jpeg`, `.png`
 *   **Vectors:** `.ai`, `.eps` (Need Ghostscript), `.svg` (Need Ghostscript & GTK3)
@@ -211,7 +248,7 @@ Stores settings automatically (usually in `Documents/RJAutoMetadata` on Windows)
 
 *Processing vectors/videos WILL FAIL without the required external tools!*
 
-## 9. Troubleshooting Common Issues
+## 10. Troubleshooting Common Issues
 
 *   **"Exiftool not found" / Errors on `.ai`/`.eps` / Errors on `.mp4`/`.mkv`:**
     *   **Using Installer:** These tools should be bundled. Ensure the installation completed without errors and the `tools/` subfolder exists with content. Check the application log for specific errors during execution.
@@ -223,7 +260,7 @@ Stores settings automatically (usually in `Documents/RJAutoMetadata` on Windows)
 *   **Permission Errors:** Cannot write to Output Folder or config location? Choose different folder, check permissions.
 *   **Freezes/Crashes:** Review the GUI log carefully for any error messages. Since the terminal output is suppressed, the GUI log is the primary source of information. Ensure all dependencies (Python and external) are correctly installed. If the log provides no clues, consider system resource issues or try reducing the number of `Workers`.
 
-## 10. Project Structure Deep Dive
+## 11. Project Structure Deep Dive
 
 *   `main.py`: Entry point.
 *   `src/`: Core logic.
@@ -238,7 +275,7 @@ Stores settings automatically (usually in `Documents/RJAutoMetadata` on Windows)
 *   `licenses/`: Dependency licenses.
 *   `sample_files/`: Test files.
 
-## 11. License Information
+## 12. License Information
 
 Licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See `LICENSE` file.
 
@@ -248,15 +285,15 @@ Licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See `L
 
 Dependencies have their own licenses (MIT, Apache, LGPL, etc.). See `licenses/` folder. Comply with all, especially for external tools (ExifTool, Ghostscript, FFmpeg, GTK3).
 
-## 12. Contributing
+## 13. Contributing
 
 This is currently a solo project and my first one! As such, I'm focusing on learning and building. While I'm not set up for formal contributions right now, I'm always open to hearing feedback or suggestions. You can reach out via the contact details below (if provided).
 
-## 13. Contact & Support
+## 14. Contact & Support
 
 You can find me and discuss this project (or others) at: https://s.id/rj_auto_metadata
 
-## 14. Support the Project
+## 15. Support the Project
 
 If you find this application helpful and would like to support its continued development, you can do so via the QR code below. Thanks!
 

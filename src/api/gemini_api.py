@@ -28,169 +28,31 @@ from collections import defaultdict
 
 from src.api.rate_limiter import MODEL_RATE_LIMITERS, API_RATE_LIMITERS
 from src.utils.logging import log_message
+from src.api.gemini_prompts import (
+    PROMPT_TEXT, PROMPT_TEXT_PNG, PROMPT_TEXT_VIDEO,
+    PROMPT_TEXT_BALANCED, PROMPT_TEXT_PNG_BALANCED, PROMPT_TEXT_VIDEO_BALANCED,
+    PROMPT_TEXT_FAST, PROMPT_TEXT_PNG_FAST, PROMPT_TEXT_VIDEO_FAST
+)
 
 # Constants
 GEMINI_MODELS = [
     "gemini-2.0-flash",
-    "gemini-2.0-flash-exp",
+    "gemini-2.0-flash-lite",
     "gemini-1.5-flash-8b",
     "gemini-1.5-flash",
     "gemini-1.5-pro",  
-    "gemini-2.0-flash-lite"
+    "gemini-2.5-flash-preview-04-17",
+    "gemini-2.5-pro-preview-03-25"
 ]
-DEFAULT_MODEL = "gemini-2.0-flash-exp"
+DEFAULT_MODEL = "gemini-1.5-flash"
 MODEL_LAST_USED = defaultdict(float)
 MODEL_LOCK = threading.Lock()
 API_KEY_LAST_USED = defaultdict(float) 
 API_KEY_LOCK = threading.Lock() 
 API_KEY_MIN_INTERVAL = 1.0 
 API_TIMEOUT = 30
-API_MAX_RETRIES = 3
+API_MAX_RETRIES = 2
 API_RETRY_DELAY = 2
-
-# Prompts
-PROMPT_TEXT = '''
-Analyze the provided image and generate the following metadata strictly in English:
-
-1.  Title: A unique, detailed and descriptive title for the image (minimum 6 words, maximum 160 characters). 
-   - Make each title unique with specific details from the image
-   - Focus on distinctive features, unusual aspects, or specific details
-   - Include any unique lighting, composition, emotional tone, or context
-   - Avoid generic descriptions that could apply to multiple similar images
-   - Do not use any special characters or numbers in the title
-   - Ensure the title is original and not repetitive
-   - The title provides a clear and complete description of the image
-
-2.  Description: A detailed description of the image content.
-    - Minimum 6 words, maximum 160 characters
-    - Use detailed, descriptive sentences or phrases to detail the Who, What, When, Where, and Why of your content.
-    - Create a description that uniquely identifies your content
-    - Include helpful details about angle, focus, etc
-    - Avoid generic descriptions that could apply to multiple similar images
-    - Do not merely list keywords as your description
-    - Avoid repeating words or phrases
-    - Do not include links, specific camera information, and trademarks (unless it is relevant for Editorial content only).
-    - Maximum 160 characters!
-
-3.  Keywords: A list of SINGLE-WORD keywords only, separated ONLY by commas.  
-    - Use specific and unique words (or compound words)
-    - Stay between 50 and 60 keywords
-    - Each keyword must be just ONE word 
-    - Keywords should be related to the content of the image
-    - DO NOT use multi-word phrases, only individual single words
-    - Ensure keywords are relevant to the image content
-    - Remember to include broader topics, feelings, concepts, or even associations
-    - Do not enter unrelated terms or concepts
-    - Do not repeat the same words or compound words
-    - Do not include links, specific camera information, and trademarks (except for Editorial content)
-    - All keywords are need to be relevant and encompass various aspects of the image and ways to find it
-    
-    
-Ensure all outputs are in English.
-
-Provide the output STRICTLY in the following format, with each item on a new line and no extra text before or after:
-
-Title: [Generated Title Here]
-Description: [Generated Description Here]
-Keywords: [keyword1, keyword2, keyword3, ..., keywordN]
-'''
-
-PROMPT_TEXT_PNG = '''
-Analyze the provided image which has a transparent background and generate the following metadata strictly in English, focusing ONLY on the main subject(s):
-
-1.  Title: A unique, detailed and descriptive title for the main subject(s) of the image (minimum 6 words, maximum 160 characters).
-   - Describe only the visible subject(s), ignore the transparent background.
-   - Make each title unique with specific details from the subject(s).
-   - Focus on distinctive features, unusual aspects, or specific details of the subject(s).
-   - Include any unique lighting, composition, emotional tone, or context related to the subject(s).
-   - Avoid generic descriptions.
-   - Do not use any special characters or numbers in the title.
-   - Ensure the title is original and not repetitive.
-   - The title provides a clear and complete description of the subject(s).
-
-2.  Description: A detailed description of the main subject(s) of the image.
-   - Minimum 6 words, maximum 160 characters.
-   - Describe only the visible subject(s), ignore the transparent background.
-   - Use detailed, descriptive sentences or phrases detailing the Who/What of the subject(s).
-   - Create a description that uniquely identifies the subject(s).
-   - Include helpful details about the subject's angle, focus, etc.
-   - Avoid generic descriptions.
-   - Do not merely list keywords as your description.
-   - Avoid repeating words or phrases.
-   - Do not include links, specific camera information, and trademarks (unless relevant for Editorial content).
-   - Maximum 160 characters!
-
-3.  Keywords: A list of SINGLE-WORD keywords only, related ONLY to the main subject(s), separated ONLY by commas.
-   - Describe only the visible subject(s), ignore the transparent background.
-   - Use specific and unique words (or compound words) describing the subject(s).
-   - Stay between 50 and 60 keywords.
-   - Each keyword must be just ONE word.
-   - Keywords should be related to the subject(s) content.
-   - DO NOT use multi-word phrases, only individual single words.
-   - Ensure keywords are relevant to the subject(s) content.
-   - Remember to include broader topics, feelings, concepts, or associations related to the subject(s).
-   - Do not enter unrelated terms or concepts (especially background descriptions like 'isolated', 'white background', etc., unless the subject ITSELF is related to isolation).
-   - Do not repeat the same words or compound words.
-   - Do not include links, specific camera information, and trademarks (except for Editorial content).
-   - All keywords need to be relevant and encompass various aspects of the subject(s) and ways to find it.
-
-
-Ensure all outputs are in English.
-
-Provide the output STRICTLY in the following format, with each item on a new line and no extra text before or after:
-
-Title: [Generated Title Here]
-Description: [Generated Description Here]
-Keywords: [keyword1, keyword2, keyword3, ..., keywordN]
-'''
-
-PROMPT_TEXT_VIDEO = '''
-Analyze the provided image frame from a video and generate the following metadata strictly in English:
-
-1. Title: A unique, detailed and descriptive title for the video (minimum 6 words, maximum 160 characters).
-   - Make each title unique with specific details from the visible content
-   - Focus on distinctive features, unusual aspects, or specific details 
-   - Include any unique visual elements, subjects, scene setting or context
-   - Consider this is a video, not just a static image
-   - Avoid generic descriptions that could apply to multiple similar videos
-   - Do not use any special characters or numbers in the title
-   - Ensure the title is original and not repetitive
-   - The title should provide a clear and complete description of the video content
-
-2. Description: A detailed description of the video content.
-   - Minimum 6 words, maximum 160 characters
-   - Describe the main subjects, actions, and setting visible in the video frames
-   - Include helpful details about what is happening in the video
-   - Consider the dynamic nature of video content (action, movement, etc.)
-   - Avoid generic descriptions that could apply to multiple similar videos
-   - Do not merely list keywords as your description
-   - Avoid repeating words or phrases
-   - Do not include links, specific camera information, and trademarks (unless it is relevant for Editorial content only).
-   - Maximum 160 characters!
-
-3. Keywords: A list of SINGLE-WORD keywords only, separated ONLY by commas.  
-   - Use specific and unique words (or compound words)
-   - Include keywords related to both static and dynamic video aspects
-   - Stay between 50 and 60 keywords
-   - Each keyword must be just ONE word 
-   - Keywords should be related to the content of the video
-   - DO NOT use multi-word phrases, only individual single words
-   - Ensure keywords are relevant to the video content
-   - Remember to include broader topics, feelings, concepts, or even associations
-   - Include keywords related to video production, motion, action where appropriate
-   - Do not enter unrelated terms or concepts
-   - Do not repeat the same words or compound words
-   - Do not include links, specific camera information, and trademarks (except for Editorial content)
-   - All keywords need to be relevant and encompass various aspects of the video and ways to find it
-    
-Ensure all outputs are in English.
-
-Provide the output STRICTLY in the following format, with each item on a new line and no extra text before or after:
-
-Title: [Generated Title Here]
-Description: [Generated Description Here]
-Keywords: [keyword1, keyword2, keyword3, ..., keywordN]
-'''
 
 # Global state for stop flags
 FORCE_STOP_FLAG = False
@@ -275,7 +137,8 @@ def wait_for_api_key_cooldown(api_key, stop_event=None):
     with API_KEY_LOCK:
         API_KEY_LAST_USED[api_key] = time.time()
 
-def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, use_video_prompt=False):
+def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, use_video_prompt=False, selected_model=None, keyword_count="49", priority="Kualitas"):
+    log_message(f"  PRIORITAS PROMPT: {priority}")
     _, ext = os.path.splitext(image_path)
     allowed_api_ext = ('.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif')
     if not ext.lower() in allowed_api_ext:
@@ -308,12 +171,19 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
         try:
             if check_stop_event(stop_event, f"  API request dibatalkan: {image_basename}"):
                 return "stopped"
-            selected_model = select_next_model()
-            wait_for_model_cooldown(selected_model, stop_event)
+            if selected_model and selected_model != "Auto Rotasi":
+                if selected_model not in GEMINI_MODELS:
+                    log_message(f"  WARNING: Model '{selected_model}' tidak valid, fallback ke default ({DEFAULT_MODEL})", "warning")
+                    model_to_use = DEFAULT_MODEL
+                else:
+                    model_to_use = selected_model
+            else:
+                model_to_use = select_next_model()
+            wait_for_model_cooldown(model_to_use, stop_event)
             if check_stop_event(stop_event, f"  API request dibatalkan: {image_basename}"):
                 return "stopped"
-            api_endpoint = get_api_endpoint(selected_model)
-            log_message(f"  Mengirim {image_basename} ke Gemini API menggunakan model {selected_model}...")
+            api_endpoint = get_api_endpoint(model_to_use)
+            log_message(f"  Mengirim {image_basename} ke Gemini API menggunakan model {model_to_use}...")
             try:
                 with open(image_path, "rb") as image_file:
                     image_data = base64.b64encode(image_file.read()).decode("utf-8")
@@ -324,15 +194,28 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
             if mime_type == "image/jpg": mime_type = "image/jpeg"
             if mime_type not in ["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"]:
                  mime_type = "image/jpeg"
-            if use_video_prompt:
-                selected_prompt = PROMPT_TEXT_VIDEO
-                log_message(f"  Menggunakan prompt: Video")
-            elif use_png_prompt:
-                selected_prompt = PROMPT_TEXT_PNG
-                log_message(f"  Menggunakan prompt: PNG/EPS Khusus")
+            # Pilih prompt sesuai prioritas dan tipe file
+            if priority == "Cepat":
+                if use_video_prompt:
+                    selected_prompt = PROMPT_TEXT_VIDEO_FAST
+                elif use_png_prompt:
+                    selected_prompt = PROMPT_TEXT_PNG_FAST
+                else:
+                    selected_prompt = PROMPT_TEXT_FAST
+            elif priority == "Seimbang":
+                if use_video_prompt:
+                    selected_prompt = PROMPT_TEXT_VIDEO_BALANCED
+                elif use_png_prompt:
+                    selected_prompt = PROMPT_TEXT_PNG_BALANCED
+                else:
+                    selected_prompt = PROMPT_TEXT_BALANCED
             else:
-                selected_prompt = PROMPT_TEXT
-                log_message(f"  Menggunakan prompt: Standar")
+                if use_video_prompt:
+                    selected_prompt = PROMPT_TEXT_VIDEO
+                elif use_png_prompt:
+                    selected_prompt = PROMPT_TEXT_PNG
+                else:
+                    selected_prompt = PROMPT_TEXT
             payload = {
                 "contents": [{"parts": [{"text": selected_prompt}, {"inline_data": {"mime_type": mime_type, "data": image_data}}]}],
                 "safetySettings": [
@@ -406,10 +289,10 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
                 error_details = response_data.get("error", {})
                 error_code = error_details.get("code", "UNKNOWN")
                 error_message = error_details.get("message", "No error message")
-                log_message(f"  API Error [{selected_model}]: {error_code} - {error_message}")
+                log_message(f"  API Error [{model_to_use}]: {error_code} - {error_message}")
                 if error_code == 429:
                     with MODEL_LOCK:
-                        MODEL_RATE_LIMITERS[selected_model].tokens = max(0, MODEL_RATE_LIMITERS[selected_model].tokens - 5)
+                        MODEL_RATE_LIMITERS[model_to_use].tokens = max(0, MODEL_RATE_LIMITERS[model_to_use].tokens - 5)
                     log_message("  Rate limit exceeded. Menunggu lebih lama...")
                     exponential_wait = 10 * (3 ** retries) 
                     jitter = random.uniform(0, exponential_wait * 0.3)  
@@ -442,12 +325,18 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
                     if tags_match:
                         tags_raw = tags_match.group(1).strip()
                         tags = [tag.strip() for tag in tags_raw.split(',') if tag.strip()]
-                        tags = tags[:50]
+                        try:
+                            max_tags = int(keyword_count)
+                            if max_tags < 1 or max_tags > 60:
+                                max_tags = 49
+                        except Exception:
+                            max_tags = 49
+                        tags = tags[:max_tags]
                     if title or description or tags:
                         with MODEL_LOCK:
-                            MODEL_RATE_LIMITERS[selected_model].tokens = min(
-                                MODEL_RATE_LIMITERS[selected_model].capacity,
-                                MODEL_RATE_LIMITERS[selected_model].tokens + 0.5
+                            MODEL_RATE_LIMITERS[model_to_use].tokens = min(
+                                MODEL_RATE_LIMITERS[model_to_use].capacity,
+                                MODEL_RATE_LIMITERS[model_to_use].tokens + 0.5
                             )
                         return {"title": title, "description": description, "tags": tags}
                     else:

@@ -23,7 +23,7 @@ from src.utils.compression import compress_image, get_temp_compression_folder
 from src.api.gemini_api import get_gemini_metadata
 from src.metadata.csv_exporter import write_to_platform_csvs
 
-def process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True):
+def process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
     """
     Memproses file PNG: mengompres jika perlu, mendapatkan metadata dengan prompt khusus PNG.
     
@@ -33,6 +33,9 @@ def process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enab
         api_keys: List API key Gemini
         stop_event: Event threading untuk menghentikan proses
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
+        selected_model: Model pemrosesan gambar, atau None untuk auto-rotasi
+        keyword_count: Jumlah kata kunci untuk diambil dari hasil API
+        priority: Prioritas pemrosesan
         
     Returns:
         Tuple (status, metadata, output_path):
@@ -95,7 +98,7 @@ def process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enab
         return "stopped", None, None
     
     # Dapatkan metadata dari API Gemini, gunakan prompt khusus PNG
-    metadata_result = get_gemini_metadata(path_for_api, api_key, stop_event, use_png_prompt=True)
+    metadata_result = get_gemini_metadata(path_for_api, api_key, stop_event, use_png_prompt=True, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
     
     # Bersihkan file kompresi sementara
     for temp_file in temp_files_created:

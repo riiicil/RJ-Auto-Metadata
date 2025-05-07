@@ -34,7 +34,7 @@ from src.processing.video_processing import process_video
 from src.api.gemini_api import check_stop_event, is_stop_requested
 from src.metadata.csv_exporter import write_to_platform_csvs
 
-def process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop_event, auto_kategori_enabled=True):
+def process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
     """
     Memproses file vektor (EPS, AI, SVG).
     
@@ -45,6 +45,9 @@ def process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop
         ghostscript_path: Full path to the Ghostscript executable
         stop_event: Event threading untuk menghentikan proses
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
+        selected_model: Selected model for processing
+        keyword_count: Number of keywords to use for processing
+        priority: Priority for processing
     Returns:
         Tuple (status, metadata, output_path):
             - status: String status pemrosesan
@@ -119,7 +122,10 @@ def process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop
         temp_raster_path if temp_raster_path else input_path, 
         api_key, 
         stop_event, 
-        use_png_prompt=True  # Gunakan prompt PNG untuk semua file vektor
+        use_png_prompt=True,  # Gunakan prompt PNG untuk semua file vektor
+        selected_model=selected_model,
+        keyword_count=keyword_count,
+        priority=priority
     )
     
     # Bersihkan file sementara
@@ -158,7 +164,7 @@ def process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop
         log_message(f"  Gagal menyalin {filename}: {e}")
         return "failed_copy", metadata, None
 
-def process_image(input_path, output_dir, api_keys, ghostscript_path, stop_event, auto_kategori_enabled=True):
+def process_image(input_path, output_dir, api_keys, ghostscript_path, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
     """
     Memproses file gambar.
     
@@ -169,6 +175,9 @@ def process_image(input_path, output_dir, api_keys, ghostscript_path, stop_event
         ghostscript_path: Full path to the Ghostscript executable (needed for vector processing)
         stop_event: Event threading untuk menghentikan proses
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
+        selected_model: Selected model for processing
+        keyword_count: Number of keywords to use for processing
+        priority: Priority for processing
     Returns:
         Tuple (status, metadata, output_path):
             - status: String status pemrosesan
@@ -191,16 +200,18 @@ def process_image(input_path, output_dir, api_keys, ghostscript_path, stop_event
     
     # Proses berdasarkan tipe file
     if ext_lower == '.png':
-        return process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled)
+        from src.processing.image_processing.format_png_processing import process_png
+        return process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
     elif ext_lower in ['.eps', '.ai', '.svg']:
-        return process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop_event, auto_kategori_enabled)
+        return process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop_event, auto_kategori_enabled, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
     elif ext_lower in ['.jpg', '.jpeg']:
-        return process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled)
+        from src.processing.image_processing.format_jpg_jpeg_processing import process_jpg_jpeg
+        return process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
     else:
         log_message(f"  Format file tidak didukung: {ext_lower}")
         return "failed_format", None, None
 
-def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path, rename_enabled, auto_kategori_enabled, auto_foldering_enabled):
+def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path, rename_enabled, auto_kategori_enabled, auto_foldering_enabled, selected_model=None, keyword_count="49", priority="Kualitas"):
     """
     Memproses satu file, menentukan tipe dan memanggil fungsi pemrosesan yang sesuai.
     
@@ -212,6 +223,9 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
         rename_enabled: Flag untuk mengaktifkan rename otomatis
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
         auto_foldering_enabled: Flag untuk menempatkan file dalam subfolder berdasarkan tipe
+        selected_model: Selected model for processing
+        keyword_count: Number of keywords to use for processing
+        priority: Priority for processing
     Returns:
         Dictionary dengan informasi hasil pemrosesan
     """
@@ -276,12 +290,22 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
         # Proses file berdasarkan jenisnya
         if is_video:
             status, processed_metadata, initial_output_path = process_video(
-                input_path, target_output_dir, api_keys_list, stop_event, auto_kategori_enabled
+                input_path, target_output_dir, api_keys_list, stop_event, auto_kategori_enabled, selected_model, keyword_count, priority
+            )
+        elif ext_lower in ['.eps', '.ai', '.svg']:
+            status, processed_metadata, initial_output_path = process_vector_file(
+                input_path, target_output_dir, api_keys_list, ghostscript_path, stop_event, auto_kategori_enabled, selected_model, keyword_count, priority
+            )
+        elif ext_lower in ['.jpg', '.jpeg']:
+            status, processed_metadata, initial_output_path = process_jpg_jpeg(
+                input_path, target_output_dir, api_keys_list, stop_event, auto_kategori_enabled, selected_model, keyword_count, priority
+            )
+        elif ext_lower == '.png':
+            status, processed_metadata, initial_output_path = process_png(
+                input_path, target_output_dir, api_keys_list, stop_event, auto_kategori_enabled, selected_model, keyword_count, priority
             )
         else:
-            status, processed_metadata, initial_output_path = process_image(
-                input_path, target_output_dir, api_keys_list, ghostscript_path, stop_event, auto_kategori_enabled
-            )
+            status, processed_metadata, initial_output_path = None, None, None
         
         if stop_event.is_set() or is_stop_requested():
             return {"status": "stopped", "input": input_path}
@@ -391,7 +415,7 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
         "new_filename": new_filename
     }
 
-def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled, progress_callback=None, stop_event=None):
+def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled, progress_callback=None, stop_event=None, selected_model=None, keyword_count="49", priority="Kualitas"):
     """
     Memproses batch file dari direktori input.
     
@@ -407,6 +431,9 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
         auto_foldering_enabled: Flag untuk menempatkan file dalam subfolder berdasarkan tipe
         progress_callback: Callback untuk melaporkan progres
         stop_event: Event threading untuk menghentikan proses
+        selected_model: Selected model for processing
+        keyword_count: Number of keywords to use for processing
+        priority: Priority for processing
         
     Returns:
         Dictionary dengan statistik hasil pemrosesan
@@ -542,7 +569,10 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                             ghostscript_path, # Pass the path here
                             rename_enabled,
                             auto_kategori_enabled,
-                            auto_foldering_enabled
+                            auto_foldering_enabled,
+                            selected_model,
+                            keyword_count,
+                            priority
                         )
                         batch_futures.append(future)
                         futures.append(future)
@@ -553,7 +583,8 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                         completed_count += 1
                 
                 if batch_futures:
-                    log_message(f"Batch {batch_index//num_workers + 1}: Menunggu hasil {len(batch_futures)} file...", "warning")
+                    # Tambahkan counting (completed_count/total_files) ke log batch
+                    log_message(f"Batch {batch_index//num_workers + 1} ({completed_count}/{total_files}): Menunggu hasil {len(batch_futures)} file...", "warning")
                     
                     for future in concurrent.futures.as_completed(batch_futures):
                         if stop_event and stop_event.is_set() or is_stop_requested():
