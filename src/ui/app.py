@@ -50,7 +50,7 @@ from src.utils.system_checks import (
 from src.metadata.exif_writer import check_exiftool_exists # Keep this import for the check
 
 # Konstanta aplikasi
-APP_VERSION = "3.0.0" # Updated version
+APP_VERSION = "3.1.0" # Updated version
 CONFIG_FILE = "config.json"
 
 class MetadataApp(ctk.CTk):

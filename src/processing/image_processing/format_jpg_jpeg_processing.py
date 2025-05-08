@@ -25,14 +25,14 @@ from src.metadata.exif_writer import write_exif_with_exiftool
 from src.metadata.csv_exporter import write_to_platform_csvs
 from src.utils.file_utils import ensure_unique_title
 
-def process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
+def process_jpg_jpeg(input_path, output_dir, selected_api_key: str, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
     """
     Memproses file JPG/JPEG: mengompres jika perlu, mendapatkan metadata, dan menulis EXIF.
     
     Args:
         input_path: Path file sumber
         output_dir: Direktori output
-        api_keys: List API key Gemini
+        selected_api_key: API key Gemini yang sudah dipilih secara cerdas
         stop_event: Event threading untuk menghentikan proses
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
         selected_model: Model pemrosesan gambar (None untuk auto-rotasi)
@@ -55,10 +55,6 @@ def process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori
     # Periksa apakah file output sudah ada
     if os.path.exists(initial_output_path):
         return "skipped_exists", None, initial_output_path
-    
-    # Pilih API key secara acak jika ada beberapa
-    import random
-    api_key = random.choice(api_keys) if isinstance(api_keys, list) else api_keys
     
     # Dapatkan folder kompresi sementara
     chosen_temp_folder = get_temp_compression_folder(output_dir)
@@ -99,8 +95,17 @@ def process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori
                 pass
         return "stopped", None, None
     
-    # Dapatkan metadata dari API Gemini
-    metadata_result = get_gemini_metadata(path_for_api, api_key, stop_event, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
+    # Dapatkan metadata dari Gemini API
+    api_key_to_use = selected_api_key
+    metadata_result = get_gemini_metadata(
+        path_for_api,
+        api_key_to_use,
+        stop_event,
+        use_png_prompt=False,
+        selected_model_input=selected_model,
+        keyword_count=keyword_count,
+        priority=priority
+    )
     
     # Bersihkan file kompresi sementara
     for temp_file in temp_files_created:

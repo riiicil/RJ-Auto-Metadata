@@ -20,8 +20,10 @@ RJ Auto Metadata is a powerful desktop application built with Python and CustomT
 *   **Efficient Batch Processing:**
     *   Processes entire folders of files automatically.
     *   Uses a configurable number of parallel worker threads (`concurrent.futures.ThreadPoolExecutor`) for faster throughput (`src/processing/batch_processing.py`).
-    *   Implements API key rotation to distribute load and potentially bypass rate limits when multiple keys are provided.
-    *   Includes configurable delays between API requests per worker to manage API usage quotas (`src/api/rate_limiter.py`).
+    *   Smart API Key Selection. Intelligently selects the "most ready" API key for each request based on its current token bucket wait time and last usage, optimizing throughput and reducing immediate rate limit errors, rather than simple rotation. (`src/api/gemini_api.py`)
+    *   Adaptive Inter-Batch Cooldown. Automatically adjusts the delay between processing batches. If a high percentage of API calls failed in the previous batch, the delay is temporarily increased (e.g., to 60 seconds) to allow API RPM to recover. Otherwise, the user-defined delay is used. (`src/processing/batch_processing.py`)
+    *   Fallback Model Mechanism. If an API call fails due to rate limits (429) after all main retries with the selected model, the application attempts one final call using the "most ready" model from a predefined fallback list, increasing the chances of successful metadata generation. This does not apply if "Auto Rotasi" is active for model selection. (`src/api/gemini_api.py`)
+    *   Includes configurable base delays between API requests per worker to manage API usage quotas (`src/api/rate_limiter.py`).
 *   **Broad File Format Compatibility:**
     *   **Images:** Processes standard formats like `.jpg`, `.jpeg`, `.png` directly (`src/processing/image_processing/`).
     *   **Vectors:** Handles `.ai`, `.eps`, and `.svg` files. Requires external tools (Ghostscript, GTK3 Runtime) for rendering/conversion before analysis (`src/processing/vector_processing/`).
@@ -75,7 +77,7 @@ The application follows these general steps during processing:
     *   Distributes files to worker threads.
     *   Each worker:
         *   **Preprocessing:** Converts/extracts data (video frames, vector rendering). Handles compression (`src/utils/compression.py`).
-        *   **API Call:** Sends data to Gemini API (respecting `Delay`, rotating keys) (`src/api/gemini_api.py`, `src/api/rate_limiter.py`).
+        *   **API Call:** Selects the smartest API key, sends data to Gemini API (respecting base `Delay` and adaptive cooldowns, utilizing fallback models if necessary) (`src/api/gemini_api.py`, `src/api/rate_limiter.py`).
         *   **Metadata Extraction:** Parses Gemini response.
         *   **File Copying:** Copies original to Output Folder (optional subfolders).
         *   **Metadata Writing:** Calls ExifTool to embed metadata (`src/metadata/exif_writer.py`).
@@ -234,11 +236,12 @@ Your usage is evaluated against each limit independently. If you exceed any one 
 | Gemini 2.5 Pro Experimental 03-25   | 5   | 250,000  | 25   |
 | Gemini 2.0 Flash                    | 15  | 1,000,000| 1,500|
 | Gemini 2.0 Flash-Lite               | 30  | 1,000,000| 1,500|
-| Gemini 1.5 Flash-pro                | 2   | 250,000  |  50  |
+| Gemini 1.5 Pro                      | 2   | 250,000  |  50  |
 | Gemini 1.5 Flash                    | 15  | 250,000  | 500  |
 | Gemini 1.5 Flash-8b                 | 15  | 250,000  | 500  |
 
 > **Note:** Rate limits are more restrictive for experimental and preview models. Always refer to the [official Gemini API documentation](https://ai.google.dev/gemini-api/docs/rate-limits) for the most up-to-date information.
+> RJ Auto Metadata v3.1.0 and later include several internal mechanisms like Smart API Key Selection, Adaptive Inter-Batch Cooldown, and a Fallback Model system to help navigate these limits more effectively and improve processing resilience. However, respecting these limits by configuring appropriate worker counts and base delays remains crucial for sustained operation.
 
 ## 9. Supported File Formats
 
@@ -257,6 +260,7 @@ Your usage is evaluated against each limit independently. If you exceed any one 
     *   **Using Installer:** The GTK3 Runtime installation might have failed or been skipped during setup. Try running the GTK3 installer found within the application's temporary setup files (if available) or download and install it manually.
     *   **Running from Source:** GTK3 Runtime is missing or misconfigured. Install GTK3 Runtime.
 *   **API Errors (429, Auth):** Incorrect/inactive API key? Hitting rate limits? Check keys, increase `Delay`, reduce `Workers`, add more keys. Check internet.
+    *   *Note:* Version 3.1.0+ includes enhanced internal handling for rate limits (smart key selection, adaptive cooldown, fallback models), but user configuration for workers and base delay is still important.
 *   **Permission Errors:** Cannot write to Output Folder or config location? Choose different folder, check permissions.
 *   **Freezes/Crashes:** Review the GUI log carefully for any error messages. Since the terminal output is suppressed, the GUI log is the primary source of information. Ensure all dependencies (Python and external) are correctly installed. If the log provides no clues, consider system resource issues or try reducing the number of `Workers`.
 

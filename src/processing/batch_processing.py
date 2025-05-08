@@ -31,17 +31,17 @@ from src.processing.image_processing.format_png_processing import process_png
 from src.processing.vector_processing.format_eps_ai_processing import convert_eps_to_jpg
 from src.processing.vector_processing.format_svg_processing import convert_svg_to_jpg
 from src.processing.video_processing import process_video
-from src.api.gemini_api import check_stop_event, is_stop_requested
+from src.api.gemini_api import check_stop_event, is_stop_requested, select_smart_api_key
 from src.metadata.csv_exporter import write_to_platform_csvs
 
-def process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
+def process_vector_file(input_path, output_dir, selected_api_key: str, ghostscript_path, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
     """
     Memproses file vektor (EPS, AI, SVG).
     
     Args:
         input_path: Path file sumber
         output_dir: Direktori output
-        api_keys: List API key Gemini
+        selected_api_key: API key Gemini yang sudah dipilih secara cerdas
         ghostscript_path: Full path to the Ghostscript executable
         stop_event: Event threading untuk menghentikan proses
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
@@ -114,16 +114,16 @@ def process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop
         # Kita hanya gunakan untuk dapatkan metadata dari API
     
     # Memproses seperti file raster dan mendapatkan metadata
-    api_key = random.choice(api_keys) if isinstance(api_keys, list) else api_keys
+    api_key_to_use = selected_api_key
     
     # Gunakan file hasil konversi untuk mendapatkan metadata
     from src.api.gemini_api import get_gemini_metadata
     metadata_result = get_gemini_metadata(
         temp_raster_path if temp_raster_path else input_path, 
-        api_key, 
+        api_key_to_use, 
         stop_event, 
         use_png_prompt=True,  # Gunakan prompt PNG untuk semua file vektor
-        selected_model=selected_model,
+        selected_model_input=selected_model,
         keyword_count=keyword_count,
         priority=priority
     )
@@ -164,14 +164,14 @@ def process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop
         log_message(f"  Gagal menyalin {filename}: {e}")
         return "failed_copy", metadata, None
 
-def process_image(input_path, output_dir, api_keys, ghostscript_path, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
+def process_image(input_path, output_dir, selected_api_key: str, ghostscript_path, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
     """
     Memproses file gambar.
     
     Args:
         input_path: Path file sumber
         output_dir: Direktori output
-        api_keys: List API key Gemini
+        selected_api_key: API key Gemini yang sudah dipilih secara cerdas
         ghostscript_path: Full path to the Ghostscript executable (needed for vector processing)
         stop_event: Event threading untuk menghentikan proses
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
@@ -201,12 +201,12 @@ def process_image(input_path, output_dir, api_keys, ghostscript_path, stop_event
     # Proses berdasarkan tipe file
     if ext_lower == '.png':
         from src.processing.image_processing.format_png_processing import process_png
-        return process_png(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
+        return process_png(input_path, output_dir, selected_api_key, stop_event, auto_kategori_enabled, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
     elif ext_lower in ['.eps', '.ai', '.svg']:
-        return process_vector_file(input_path, output_dir, api_keys, ghostscript_path, stop_event, auto_kategori_enabled, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
+        return process_vector_file(input_path, output_dir, selected_api_key, ghostscript_path, stop_event, auto_kategori_enabled, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
     elif ext_lower in ['.jpg', '.jpeg']:
         from src.processing.image_processing.format_jpg_jpeg_processing import process_jpg_jpeg
-        return process_jpg_jpeg(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
+        return process_jpg_jpeg(input_path, output_dir, selected_api_key, stop_event, auto_kategori_enabled, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
     else:
         log_message(f"  Format file tidak didukung: {ext_lower}")
         return "failed_format", None, None
@@ -281,8 +281,14 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
             log_message(f"Warning: Gagal mendapatkan info awal {original_filename}: {e_info}", "warning")
         
         if not api_keys_list:
-            log_message(f"⨯ Tidak ada API Key tersedia untuk {original_filename}", "error")
-            return {"status": "failed_api", "input": input_path}
+            log_message(f"⨯ Tidak ada API Key tersedia dalam daftar untuk {original_filename}", "error")
+            return {"status": "failed_api_list_empty", "input": input_path}
+        
+        selected_api_key = select_smart_api_key(api_keys_list)
+        
+        if not selected_api_key:
+            log_message(f"⨯ Gagal memilih API Key cerdas untuk {original_filename} (daftar mungkin kosong atau error internal).", "error")
+            return {"status": "failed_api_selection", "input": input_path}
         
         if stop_event.is_set() or is_stop_requested():
             return {"status": "stopped", "input": input_path}
@@ -290,22 +296,23 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
         # Proses file berdasarkan jenisnya
         if is_video:
             status, processed_metadata, initial_output_path = process_video(
-                input_path, target_output_dir, api_keys_list, stop_event, auto_kategori_enabled, selected_model, keyword_count, priority
+                input_path, target_output_dir, selected_api_key, stop_event, auto_kategori_enabled, selected_model, keyword_count, priority
             )
         elif ext_lower in ['.eps', '.ai', '.svg']:
             status, processed_metadata, initial_output_path = process_vector_file(
-                input_path, target_output_dir, api_keys_list, ghostscript_path, stop_event, auto_kategori_enabled, selected_model, keyword_count, priority
+                input_path, target_output_dir, selected_api_key, ghostscript_path, stop_event, auto_kategori_enabled, selected_model, keyword_count, priority
             )
         elif ext_lower in ['.jpg', '.jpeg']:
             status, processed_metadata, initial_output_path = process_jpg_jpeg(
-                input_path, target_output_dir, api_keys_list, stop_event, auto_kategori_enabled, selected_model, keyword_count, priority
+                input_path, target_output_dir, selected_api_key, stop_event, auto_kategori_enabled, selected_model, keyword_count, priority
             )
         elif ext_lower == '.png':
             status, processed_metadata, initial_output_path = process_png(
-                input_path, target_output_dir, api_keys_list, stop_event, auto_kategori_enabled, selected_model, keyword_count, priority
+                input_path, target_output_dir, selected_api_key, stop_event, auto_kategori_enabled, selected_model, keyword_count, priority
             )
         else:
-            status, processed_metadata, initial_output_path = None, None, None
+            log_message(f"  Format file tidak didukung untuk API: {ext_lower}")
+            status, processed_metadata, initial_output_path = "failed_format", None, None
         
         if stop_event.is_set() or is_stop_requested():
             return {"status": "stopped", "input": input_path}
@@ -527,6 +534,10 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
             
             batch_index = 0
             while batch_index < len(files_to_process) and not (stop_event and stop_event.is_set() or is_stop_requested()):
+                # --- ADAPTIVE COOLDOWN: Initialize counters for the current batch ---
+                current_batch_api_failures = 0
+                current_batch_files_processed = 0 # Track total processed in batch for percentage calculation
+                
                 # Delay progresif antar batch untuk mengurangi rate limit
                 base_batch_delay = delay_seconds / 3.0
                 progressive_delay = base_batch_delay * (batch_index / num_workers) if batch_index > 0 else 0
@@ -582,28 +593,43 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                         failed_count += 1
                         completed_count += 1
                 
+                # --- ADAPTIVE COOLDOWN: Update current_batch_size after submitting jobs ---
+                current_batch_size = len(batch_futures)
+                
                 if batch_futures:
                     # Tambahkan counting (completed_count/total_files) ke log batch
+                    # Log ini mungkin perlu diperbarui untuk tidak menampilkan completed_count, tapi jumlah file dalam batch ini?
+                    # Untuk sekarang biarkan dulu.
                     log_message(f"Batch {batch_index//num_workers + 1} ({completed_count}/{total_files}): Menunggu hasil {len(batch_futures)} file...", "warning")
                     
                     for future in concurrent.futures.as_completed(batch_futures):
                         if stop_event and stop_event.is_set() or is_stop_requested():
                             break
                         
-                        completed_count += 1 
+                        # completed_count += 1 # Pindahkan ini ke setelah dapat hasil valid
+                        current_batch_files_processed += 1 # Hitung file yang hasilnya diterima di batch ini
                         
                         try:
                             result = future.result(timeout=120)
+                            completed_count += 1 # Increment total completed count only after successful result retrieval
                             
                             if not result:
                                 log_message(f"⨯ Hasil tidak valid diterima", "error")
                                 failed_count += 1
+                                # Consider if this counts as an API failure for adaptive cooldown? Maybe not directly.
                                 continue
                             
                             status = result.get("status", "failed")
                             input_path_result = result.get("input", "")
                             filename = os.path.basename(input_path_result) if input_path_result else "unknown file"
                             
+                            # --- ADAPTIVE COOLDOWN: Check for API related failures ---
+                            api_failure_statuses = ["failed_api", "failed_api_selection", "failed_api_list_empty"]
+                            if status in api_failure_statuses:
+                                current_batch_api_failures += 1
+                            # --- END ADAPTIVE CHECK ---
+
+                            # Logika penanganan status lainnya (processed, skipped, stopped, other fails)
                             if status == "processed_exif" or status == "processed_no_exif":
                                 processed_count += 1
                                 new_name = result.get("new_filename")
@@ -636,12 +662,22 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                                      log_message(f"✗ {filename} ({status})", "error")
                             
                         except concurrent.futures.TimeoutError:
-                            log_message(f"⨯ Timeout menunggu hasil pekerjaan", "error")
+                            # completed_count += 1 # Timeout juga berarti satu pekerjaan selesai (meski gagal)
+                            current_batch_files_processed += 1 # Hitung sebagai diproses di batch ini
+                            completed_count += 1 # Update total count
+                            log_message(f"⨯ Timeout menunggu hasil pekerjaan untuk {filename if 'filename' in locals() else 'unknown file'}", "error")
                             failed_count += 1
+                            # Consider Timeout as a potential symptom of API overload?
+                            # current_batch_api_failures += 1 # Optional: Treat timeout as API failure for cooldown
                         except concurrent.futures.CancelledError:
+                            # current_batch_files_processed += 1 # Dibatalkan juga selesai
+                            # completed_count += 1
+                            # Tidak perlu dihitung sebagai failed atau API failure jika dibatalkan oleh user
                             log_message(f"Pekerjaan dibatalkan.", "warning")
                             stopped_count += 1
                         except Exception as e:
+                            # current_batch_files_processed += 1 # Error juga selesai
+                            # completed_count += 1
                             failed_input_path = "unknown file"
                             log_message(f"Error saat memproses hasil: {e}", "error")
                             failed_count += 1
@@ -649,6 +685,19 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                         # Update progres
                         if progress_callback:
                             progress_callback(completed_count, total_files)
+                    
+                    # --- ADAPTIVE COOLDOWN: Calculate failure rate and determine effective delay ---
+                    failure_percentage = 0.0
+                    if current_batch_size > 0:
+                        failure_percentage = (current_batch_api_failures / current_batch_size) * 100
+                    
+                    effective_delay = delay_seconds # Default ke nilai user
+                    FAILURE_THRESHOLD_PERCENT = 90.0 # Ambang batas 90%
+
+                    if current_batch_size > 0 and failure_percentage >= FAILURE_THRESHOLD_PERCENT:
+                        effective_delay = 60 # Paksa delay 60 detik
+                        log_message(f"Batch {batch_index//num_workers + 1} gagal API {failure_percentage:.1f}% ({current_batch_api_failures}/{current_batch_size}), cooldown adaptif 60 detik aktif.", "warning")
+                    # --- END ADAPTIVE COOLDOWN CALCULATION ---
                 
                 if stop_event and stop_event.is_set() or is_stop_requested():
                     log_message("Stop terdeteksi setelah memproses hasil batch.", "warning")
@@ -657,13 +706,13 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                 batch_index += num_workers
                 is_last_batch = (batch_index >= len(files_to_process))
                 
-                # Cooldown antara batch
-                if not is_last_batch and not (stop_event and stop_event.is_set() or is_stop_requested()) and delay_seconds > 0:
-                    cooldown_msg = f"Cool-down {delay_seconds} detik dulu ngabbbb..."
+                # Cooldown antara batch (Gunakan effective_delay)
+                if not is_last_batch and not (stop_event and stop_event.is_set() or is_stop_requested()) and effective_delay > 0: # Check effective_delay
+                    cooldown_msg = f"Cool-down {effective_delay} detik dulu ngabbbb..."
                     log_message(cooldown_msg, "cooldown")
                     
                     # Delay dengan pengecekan stop periodik
-                    for _ in range(int(delay_seconds * 10)): 
+                    for _ in range(int(effective_delay * 10)): # Gunakan effective_delay
                         if stop_event and stop_event.is_set() or is_stop_requested():
                             log_message("Proses dihentikan oleh pengguna (deteksi cooldown)", "warning")
                             break

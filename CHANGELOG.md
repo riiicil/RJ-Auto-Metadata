@@ -17,7 +17,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -
 
 ---
-## [3.0.0] - 2025-05-13
+## [3.1.0] - 2025-05-08 Feature & BugFix Release
+
+### Added
+- **Smart API Key Selection:** Implemented logic to select the "most ready" API key based on its token bucket wait time and last usage time, replacing the previous random selection. This involves new helper functions `get_potential_wait_time` in `TokenBucket` and `select_smart_api_key` in `gemini_api.py`.
+- **Fallback Model Mechanism:** If the user-selected or auto-selected API model fails due to rate limits (429) after all main retries, the system attempts one additional call using the "most ready" model from a predefined fallback list (`FALLBACK_MODELS`). This does not apply when "Auto Rotasi" mode is active. Logic handled by `select_best_fallback_model` and integrated into `_attempt_gemini_request` and `get_gemini_metadata` in `gemini_api.py`.
+- **Adaptive Inter-Batch Cooldown:** The delay between processing batches now dynamically adjusts. If a high percentage (e.g., >90%) of API calls failed in the preceding batch, the next inter-batch delay is automatically set to 60 seconds to allow API RPM to recover. Otherwise, the user-defined delay is used. The delay reverts to the user-defined value if the subsequent batch (after a 60s cooldown) is successful (failure rate <90%). (`batch_processing.py`)
+
+### Changed
+- **Metadata Extraction Refactor:** The logic for extracting Title, Description, and Keywords from the API's text response has been centralized into a new helper function `_extract_metadata_from_text` within `get_gemini_metadata` (`gemini_api.py`). This eliminates code duplication for handling both primary and fallback API call results, leading to cleaner and more maintainable code.
+- **API Call Logic Refactor:** The core logic for making a single attempt to the Gemini API, including error handling for specific HTTP status codes (429, 500, 503), has been refactored into the `_attempt_gemini_request` function in `gemini_api.py`.
+- **`get_gemini_metadata` Overhaul:** This main function in `gemini_api.py` has been significantly reworked to utilize `_attempt_gemini_request`, manage the primary retry loop, and implement the new fallback model logic after the main loop fails due to a 429 error (only if not in "Auto Rotasi" mode).
+- **API Key Handling in Processing:** `process_single_file` in `batch_processing.py` was updated to call `select_smart_api_key`. All specific file processing functions (for JPG, PNG, Video, Vector) were modified to accept a single pre-selected API key instead of a list of keys.
+
+### Fixed
+- Fixed a logical error in `wait_for_model_cooldown` (`rate_limiter.py`) where `time.time()` was incorrectly used in a `time.sleep()` context, ensuring cooldowns are applied correctly.
+
+### Removed
+- Deleted unused functions `get_gemini_metadata_with_key_rotation` and `_call_gemini_api_once` from `gemini_api.py` as their functionalities are now covered by the refactored API calling logic.
+
+---
+## [3.0.0] - 2025-05-05 Major Refactor & Feature Release
 
 ### Added
 - **Model Selection:** Dropdown UI to select specific Gemini API models (e.g., `gemini-1.5-flash`, `gemini-1.5-pro`) or use "Auto Rotasi". (`src/ui/app.py`, `src/api/gemini_api.py`)

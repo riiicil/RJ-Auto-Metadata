@@ -127,14 +127,14 @@ def extract_frames_from_video(video_path, output_folder, num_frames=3, stop_even
         log_message(f"  Detail error: {traceback.format_exc()}")
         return None
 
-def process_video(input_path, output_dir, api_keys, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
+def process_video(input_path, output_dir, selected_api_key: str, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
     """
     Memproses file video: mengekstrak frame, mendapatkan metadata, dan menulis metadata ke video.
 
     Args:
         input_path: Path file sumber
         output_dir: Direktori output
-        api_keys: List API key Gemini
+        selected_api_key: API key Gemini yang sudah dipilih secara cerdas
         stop_event: Event threading untuk menghentikan proses
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
         selected_model: Model yang dipilih untuk diproses, atau None untuk auto-rotasi
@@ -160,10 +160,6 @@ def process_video(input_path, output_dir, api_keys, stop_event, auto_kategori_en
     # Periksa apakah file output sudah ada
     if os.path.exists(initial_output_path):
         return "skipped_exists", None, initial_output_path
-
-    # Pilih API key secara acak jika ada beberapa
-    import random
-    api_key = random.choice(api_keys) if isinstance(api_keys, list) else api_keys
 
     # Dapatkan folder kompresi sementara untuk frame yang diekstrak
     chosen_temp_folder = get_temp_compression_folder(output_dir)
@@ -251,7 +247,7 @@ def process_video(input_path, output_dir, api_keys, stop_event, auto_kategori_en
         return "failed_frames", None, None
 
     # Dapatkan metadata dari API Gemini, gunakan prompt khusus video
-    metadata_result = get_gemini_metadata(best_frame, api_key, stop_event, use_video_prompt=True, selected_model=selected_model, keyword_count=keyword_count, priority=priority)
+    metadata_result = get_gemini_metadata(best_frame, selected_api_key, stop_event, use_video_prompt=True, selected_model_input=selected_model, keyword_count=keyword_count, priority=priority)
 
     # Bersihkan SEMUA frame (original yang tidak terkompres + hasil kompresi) setelah API call
     # extracted_frames might contain originals if compression failed or wasn't needed
