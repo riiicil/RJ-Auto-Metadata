@@ -48,9 +48,10 @@ from src.utils.system_checks import (
     set_console_visibility # Import the new function
 )
 from src.metadata.exif_writer import check_exiftool_exists # Keep this import for the check
+from src.api.api_key_checker import check_api_keys_status
 
 # Konstanta aplikasi
-APP_VERSION = "3.1.0" # Updated version
+APP_VERSION = "3.2.0" # Updated version
 CONFIG_FILE = "config.json"
 
 class MetadataApp(ctk.CTk):
@@ -433,26 +434,52 @@ Semakin banyak API key, semakin cepat proses batch.
         api_load_save_buttons = ctk.CTkFrame(api_frame, fg_color="transparent")
         api_load_save_buttons.grid(row=1, column=1, padx=5, pady=(12, 10), sticky="ns")
 
+        # Tambah tombol Cek API di atas tombol Load
+        self.cek_api_button = ctk.CTkButton(api_load_save_buttons,text="Cek API", width=70, command=self._cek_api_keys, fg_color="#079183")
+        self.cek_api_button.pack(pady=2, fill=tk.X)
+
         self.load_api_button = ctk.CTkButton(api_load_save_buttons, text="Load", width=70, command=self._load_api_keys, fg_color="#079183")
-        self.load_api_button.pack(pady=5, fill=tk.X)
+        self.load_api_button.pack(pady=2, fill=tk.X)
 
         self.save_api_button = ctk.CTkButton(api_load_save_buttons, text="Save", width=70, command=self._save_api_keys, fg_color="#079183")
-        self.save_api_button.pack(pady=5, fill=tk.X)
+        self.save_api_button.pack(pady=2, fill=tk.X)
 
         self.delete_api_button = ctk.CTkButton(api_load_save_buttons, text="Delete", width=70, command=self._delete_selected_api_key, fg_color="#079183")
-        self.delete_api_button.pack(pady=5, fill=tk.X)
+        self.delete_api_button.pack(pady=2, fill=tk.X)
 
         process_buttons_frame = ctk.CTkFrame(api_frame, fg_color="transparent")
         process_buttons_frame.grid(row=1, column=2, padx=(5, 10), pady=(0, 10), sticky="ns")
 
         self.start_button = ctk.CTkButton(process_buttons_frame, text="Mulai Proses", command=self._start_processing, font=self.font_medium, height=35, fg_color="#079183")
-        self.start_button.pack(pady=5, fill=tk.X)
+        self.start_button.pack(pady=7, fill=tk.X)
 
         self.stop_button = ctk.CTkButton(process_buttons_frame, text="Hentikan", command=self._stop_processing, font=self.font_medium, height=35, state=tk.DISABLED, fg_color=("#bf3a3a", "#8d1f1f"))
-        self.stop_button.pack(pady=5, fill=tk.X)
+        self.stop_button.pack(pady=7, fill=tk.X)
 
         self.clear_button = ctk.CTkButton(process_buttons_frame, text="Clear Log", command=self._clear_log, font=self.font_medium, height=35, fg_color="#079183")
-        self.clear_button.pack(pady=5, fill=tk.X)
+        self.clear_button.pack(pady=7, fill=tk.X)
+
+    def _cek_api_keys(self):
+        """Cek semua API key yang sudah diinputkan dan log hasilnya ke bawah."""
+        api_keys = self._actual_api_keys
+        if not api_keys:
+            self._log("Tidak ada API key untuk dicek.", "warning")
+            return
+        self.cek_api_button.configure(state=tk.DISABLED)
+        self._log("Mengecek status semua API key...", "info")
+        try:
+            results = check_api_keys_status(api_keys)
+            ok_keys = [k for k, (s, msg) in results.items() if s == 200]
+            err_keys = [(k, s, msg) for k, (s, msg) in results.items() if s != 200]
+            if len(ok_keys) == len(api_keys):
+                self._log(f"Semua API key OK ({len(ok_keys)}/{len(api_keys)})", "success")
+            else:
+                self._log(f"{len(ok_keys)} API key OK, {len(err_keys)} API key error:", "warning")
+                for k, s, msg in err_keys:
+                    self._log(f"    - ...{k[-5:]}: {s} - {msg}", "error")
+        except Exception as e:
+            self._log(f"Error saat cek API key: {e}", "error")
+        self.cek_api_button.configure(state=tk.NORMAL)
 
     def _create_options_frame(self, parent):
         """Membuat frame untuk opsi pengaturan."""
@@ -1239,7 +1266,7 @@ Konfigurasi perilaku aplikasi:
 
         # Validasi jumlah worker
         num_api_keys = len(current_api_keys)
-        max_workers = 10
+        max_workers = 25
         try:
             num_workers = int(self.workers_var.get().strip() or "3")
             if num_workers <= 0:
@@ -1589,7 +1616,12 @@ Konfigurasi perilaku aplikasi:
             r"^Gagal: \d+$",
             r"^Dilewati: \d+$",
             r"^Dihentikan: \d+$",
-            r"^=========================================$"
+            r"^=========================================$",
+            r"^Semua API key OK \(\d+/\d+\)$",
+            r"^\d+ API key OK, \d+ API key error:$",
+            r"^Tidak ada API key untuk dicek\.$",
+            r"^Error saat cek API key:.*$",
+            r"^    - \.\.\.[A-Za-z0-9]{5}: \d+ - .+$",
         ]
 
         # Check if message matches any allowed pattern

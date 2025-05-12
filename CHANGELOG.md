@@ -16,6 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 -
 
+## [3.2.0] - 2025-05-13 Optimize & Feature Release
+
+### Added
+- **API Key Checker Button:** New 'Cek API' button in the GUI to check all entered API keys at once. Results are shown in the log area, with clear OK/error summary per key.
+
+### Changed
+- **Log Filtering:** Log output from the API key checker is now visible in the GUI log (regex filter updated).
+
+### Fixed
+- **False API Limit Errors:** Removed internal rate limiter (TokenBucket) logic that was causing premature/fake API limit errors. Now, the app relies solely on Google-side quota enforcement.
+
+### Removed
+- **Internal Rate Limiter:** All TokenBucket and related cooldown logic have been removed from the codebase.
+
 ---
 ## [3.1.0] - 2025-05-08 Feature & BugFix Release
 

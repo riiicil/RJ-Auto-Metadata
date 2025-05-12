@@ -55,10 +55,10 @@ MODEL_LAST_USED = defaultdict(float)
 MODEL_LOCK = threading.Lock()
 API_KEY_LAST_USED = defaultdict(float) 
 API_KEY_LOCK = threading.Lock() 
-API_KEY_MIN_INTERVAL = 1.0 
-API_TIMEOUT = 30
-API_MAX_RETRIES = 2
-API_RETRY_DELAY = 2
+API_KEY_MIN_INTERVAL = 2.0 
+API_TIMEOUT = 90
+API_MAX_RETRIES = 3
+API_RETRY_DELAY = 4
 
 # Global state for stop flags
 FORCE_STOP_FLAG = False
@@ -159,40 +159,12 @@ def select_next_model():
         return selected_model
 
 def wait_for_model_cooldown(model_name, stop_event=None):
-    wait_time = MODEL_RATE_LIMITERS[model_name].consume()
-    if wait_time > 0:
-        jitter = random.uniform(0, 0.5)
-        total_wait = wait_time + jitter
-        log_message(f"  Rate limit: Menunggu {total_wait:.2f}s untuk model {model_name}", "warning")
-        if stop_event:
-            interval = 0.1
-            remaining = total_wait
-            while remaining > 0 and not check_stop_event(stop_event):
-                sleep_time = min(interval, remaining)
-                time.sleep(sleep_time)
-                remaining -= sleep_time
-        else:
-            time.sleep(total_wait)
-    with MODEL_LOCK:
-        MODEL_LAST_USED[model_name] = time.time()
+    # Rate limiter bypassed (hardcode)
+    return
 
 def wait_for_api_key_cooldown(api_key, stop_event=None):
-    wait_time = API_RATE_LIMITERS[api_key].consume()
-    if wait_time > 0:
-        jitter = random.uniform(0, 0.5)
-        total_wait = wait_time + jitter
-        log_message(f"  Rate limit: Menunggu {total_wait:.2f}s untuk API key", "warning")
-        if stop_event:
-            interval = 0.1
-            remaining = total_wait
-            while remaining > 0 and not check_stop_event(stop_event):
-                sleep_time = min(interval, remaining)
-                time.sleep(sleep_time)
-                remaining -= sleep_time
-        else:
-            time.sleep(total_wait)
-    with API_KEY_LOCK:
-        API_KEY_LAST_USED[api_key] = time.time()
+    # Rate limiter bypassed (hardcode)
+    return
 
 def _attempt_gemini_request(
     image_path: str,
