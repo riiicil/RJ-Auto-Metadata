@@ -51,7 +51,7 @@ from src.metadata.exif_writer import check_exiftool_exists # Keep this import fo
 from src.api.api_key_checker import check_api_keys_status
 
 # Konstanta aplikasi
-APP_VERSION = "3.2.0" # Updated version
+APP_VERSION = "3.2.1" # Updated version
 CONFIG_FILE = "config.json"
 
 class MetadataApp(ctk.CTk):
@@ -1351,6 +1351,7 @@ Konfigurasi perilaku aplikasi:
         self.delay_entry.configure(state=tk.DISABLED)
         self.input_entry.configure(state=tk.DISABLED)
         self.output_entry.configure(state=tk.DISABLED)
+        self.cek_api_button.configure(state=tk.DISABLED)
         self.load_api_button.configure(state=tk.DISABLED)
         self.save_api_button.configure(state=tk.DISABLED)
         self.delete_api_button.configure(state=tk.DISABLED)
@@ -1531,6 +1532,7 @@ Konfigurasi perilaku aplikasi:
             self.delay_entry.configure(state=tk.NORMAL)
             self.input_entry.configure(state=tk.NORMAL)
             self.output_entry.configure(state=tk.NORMAL)
+            self.cek_api_button.configure(state=tk.NORMAL)
             self.load_api_button.configure(state=tk.NORMAL)
             self.save_api_button.configure(state=tk.NORMAL)
             self.delete_api_button.configure(state=tk.NORMAL)
@@ -1574,7 +1576,7 @@ Konfigurasi perilaku aplikasi:
         # Pola regex untuk pesan yang diizinkan
         allowed_patterns = [
             r"^Kompresi otomatis aktif untuk file besar$",
-            r"^Memulai proses \(\d+ worker, delay \d+s, rotasi API aktif\)$",
+            r"^Memulai proses \(\d+ worker, delay \d+s\)$",
             r"^Ditemukan \d+ file untuk diproses$",
             r"^Output CSV akan disimpan di subfolder: metadata_csv$",
             r"^ → Memproses .+\.\w+\.\.\.$",

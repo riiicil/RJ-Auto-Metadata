@@ -15,7 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 -
+## [3.2.1] - 2025-05-13 Optimize Patch Release
 
+### Fixed
+- **API Key Checker Button:** Disable the 'Check API' button when processing starts, and reset it to enable it when the process stops or completes.
+- **Log Messages:** Adjusted log messages in batch processing to reflect the current batch count accurately.
+- **Log Messages:** Modified regex patterns for log message validation to align with recent changes.
+
+---
 ## [3.2.0] - 2025-05-13 Optimize & Feature Release
 
 ### Added

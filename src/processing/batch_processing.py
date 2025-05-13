@@ -445,7 +445,7 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
     Returns:
         Dictionary dengan statistik hasil pemrosesan
     """
-    log_message(f"Memulai proses ({num_workers} worker, delay {delay_seconds}s, rotasi API aktif)", "warning")
+    log_message(f"Memulai proses ({num_workers} worker, delay {delay_seconds}s)", "warning")
     
     # Reset flag global
     from src.api.gemini_api import reset_force_stop
@@ -595,12 +595,13 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                 
                 # --- ADAPTIVE COOLDOWN: Update current_batch_size after submitting jobs ---
                 current_batch_size = len(batch_futures)
+                comp_count = completed_count + current_batch_size
                 
                 if batch_futures:
                     # Tambahkan counting (completed_count/total_files) ke log batch
                     # Log ini mungkin perlu diperbarui untuk tidak menampilkan completed_count, tapi jumlah file dalam batch ini?
                     # Untuk sekarang biarkan dulu.
-                    log_message(f"Batch {batch_index//num_workers + 1} ({completed_count}/{total_files}): Menunggu hasil {len(batch_futures)} file...", "warning")
+                    log_message(f"Batch {batch_index//num_workers + 1} ({comp_count}/{total_files}): Menunggu hasil {len(batch_futures)} file...", "warning")
                     
                     for future in concurrent.futures.as_completed(batch_futures):
                         if stop_event and stop_event.is_set() or is_stop_requested():
