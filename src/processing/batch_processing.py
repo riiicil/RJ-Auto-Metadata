@@ -422,7 +422,7 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
         "new_filename": new_filename
     }
 
-def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled, progress_callback=None, stop_event=None, selected_model=None, keyword_count="49", priority="Kualitas"):
+def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled, progress_callback=None, stop_event=None, selected_model=None, keyword_count="49", priority="Kualitas", bypass_api_key_limit=False):
     """
     Memproses batch file dari direktori input.
     
@@ -441,6 +441,7 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
         selected_model: Selected model for processing
         keyword_count: Number of keywords to use for processing
         priority: Priority for processing
+        bypass_api_key_limit: Jika True, tidak membatasi worker ke jumlah API key
         
     Returns:
         Dictionary dengan statistik hasil pemrosesan
@@ -521,7 +522,7 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                 log_message(f"Warning: Tidak dapat membuat direktori CSV utama: {e}", "warning")
         
         # Batasi jumlah worker ke jumlah API key jika lebih sedikit
-        if len(api_keys) < num_workers:
+        if not bypass_api_key_limit and len(api_keys) < num_workers:
             old_workers = num_workers
             num_workers = len(api_keys)
             log_message(f"Jumlah worker dibatasi menjadi {num_workers} karena hanya ada {len(api_keys)} API key.", "warning")

@@ -33,6 +33,7 @@ RJ Auto Metadata is a powerful desktop application built with Python and CustomT
 *   **Extensive Customization & Configuration:**
     *   **Folder Selection:** Dedicated input and output folder paths. Ensures input/output are distinct.
     *   **API Key Management:** Text area for multiple Gemini API keys (one per line). Supports loading/saving keys to/from `.txt` files. Option to show/hide keys in the UI.
+    *   **API Key Paid Option:** New checkbox in the API Key section. If you have a paid Gemini API key, enable this option to allow the use of more workers than the number of API keys (removes the usual worker limit for free users). For free users, leave this unchecked to avoid hitting rate limits. **Note: Even with this option enabled, the maximum allowed workers is 100 for stability.**
     *   **API Model Selection:** Choose a specific Gemini model (e.g., `gemini-1.5-flash`, `gemini-1.5-pro`) or use automatic rotation (`Auto Rotasi`) via a dropdown.
     *   **Prompt Priority:** Select the desired trade-off between result detail and speed (`Kualitas`, `Seimbang`, `Cepat`) via a dropdown, using different underlying prompts.
         *   _Note:_ Prompt length affects API token usage. Longer prompts (`Kualitas`) consume more input tokens per request, potentially hitting token limits (TPM/TPD) faster. Shorter prompts (`Cepat`) are more token-efficient.
@@ -179,13 +180,15 @@ Stores settings automatically (usually in `Documents/RJAutoMetadata` on Windows)
 *   `theme`: "light", "dark", or "system".
 *   `installation_id`: Anonymous analytics ID.
 *   `analytics_enabled`: Analytics toggle state.
+*   `api_key_paid`: (boolean) If true, disables the worker limit based on API key count (for paid API key users). **Maximum allowed workers is 100.**
 
 ### 6.2. UI Settings
 
 *   **Input/Output Folders:** Must be valid, different directories.
 *   **API Keys:** One key per line. Load/Save/Delete/Show-Hide options available.
+*   **API Key Paid?:** (Checkbox) If you have a paid Gemini API key, enable this to use more workers than the number of API keys. For free users, leave unchecked to avoid rate limits. **Maximum allowed workers is 100.**
 *   **Keyword:** Max keywords from API (8-49).
-*   **Workers:** Threads (1-10+). More workers = faster, but more API usage.
+*   **Workers:** Threads (1-10+). More workers = faster, but more API usage. (Paid users can use more workers by enabling the checkbox above, up to a maximum of 100.)
 *   **Delay (s):** Pause between API calls per worker (avoids rate limits).
 *   **Theme:** Visual style selection.
 *   **Model:** Select specific Gemini model or Auto Rotasi.

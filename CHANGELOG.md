@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 -
+---
+## [3.3.0] - 2025-05-15 Feature Release
+
+### Added
+- **API Key Paid Option:** New checkbox in the API Key section of the UI. If enabled, users with a paid Gemini API key can use more workers than the number of API keys (removes the usual worker limit for free users). The state of this option is saved in the configuration file (`config.json`). **Note: Even with this option enabled, the maximum allowed workers is 100 for stability.**
+
+### Changed
+- **Worker Validation Logic:** When the 'API key paid?' option is enabled, the application no longer limits the number of workers to the number of API keys. This allows paid users to fully utilize their API quota and hardware, up to a maximum of 100 workers.
+- **Configuration:** The state of the 'API key paid?' option is now saved and loaded automatically from `config.json` like other settings.
+---
 ## [3.2.1] - 2025-05-13 Optimize Patch Release
 
 ### Fixed
@@ -161,3 +171,5 @@ This version represents a significant overhaul and feature expansion from v1.
 - Simple UI for core functions (folders, keys, basic options).
 - Basic `config.json` saving.
 - Bundled ExifTool.
+
+

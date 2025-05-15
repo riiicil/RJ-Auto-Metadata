@@ -407,24 +407,33 @@ Semakin banyak API key, semakin cepat proses batch.
         """
         # --- API Header Frame ---
         api_header_frame = ctk.CTkFrame(api_frame, fg_color="transparent")
-        api_header_frame.grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        api_header_frame.grid(row=0, column=0, columnspan=3, padx=10, pady=10, sticky="nsw")
 
         api_header = self._create_header_with_help(api_header_frame, "API Keys", api_header_tooltip, font=ctk.CTkFont(size=15, weight="bold"))
-        api_header.pack(side=tk.LEFT, padx=(0, 10)) # Pack header to the left
+        api_header.pack(side=tk.LEFT, padx=(0, 5)) # Pack header to the left
 
         # --- Show/Hide Checkbox ---
         # --- Show/Hide Switch ---
         self.show_api_keys_switch = ctk.CTkSwitch(
             api_header_frame,
-            text="", # Ensure text is empty
+            text="Hide/Show", # Ensure text is empty
             variable=self.show_api_keys_var,
             command=self._toggle_api_key_visibility,
-            font=self.font_small, # Font might not be needed without text, but keep for consistency
-            switch_width=35, # Adjust width if needed
-            switch_height=18 # Adjust height if needed
+            # font=self.font_small, # Font might not be needed without text, but keep for consistency
+            # switch_width=35, # Adjust width if needed
+            # switch_height=18 # Adjust height if needed
         )
-        self.show_api_keys_switch.pack(side=tk.LEFT, padx=(5, 0)) # Pack switch next to header
-        ToolTip(self.show_api_keys_switch, "Tampilkan/Sembunyikan API Key") # Add tooltip directly to switch
+        self.show_api_keys_switch.pack(side=tk.LEFT, padx=(0, 0)) # Pack switch next to header
+        # ToolTip(self.show_api_keys_switch, "Tampilkan/Sembunyikan API Key") # Add tooltip directly to switch
+
+        # Tambahan: Checkbox 'API key paid?' di sebelah kanan switch
+        self.extra_settings_var = tk.BooleanVar(value=False)
+        self.extra_settings_checkbox = ctk.CTkCheckBox(
+            api_header_frame,
+            text="API key paid?",
+            variable=self.extra_settings_var
+        )
+        self.extra_settings_checkbox.pack(side=tk.RIGHT, padx=(10, 0))
 
         self.api_textbox = ctk.CTkTextbox(api_frame, height=105, corner_radius=5, wrap=tk.WORD, font=self.font_normal)
         self.api_textbox.grid(row=1, column=0, padx=(10, 5), pady=(0, 10), sticky="nsew")
@@ -1010,6 +1019,8 @@ Konfigurasi perilaku aplikasi:
                         self.show_api_keys_var.set(settings.get("show_api_keys", False))
                         # Load console visibility state (default to True/visible if not found)
                         self.console_visible_var.set(settings.get("console_visible", True))
+                        # Load API key paid checkbox state
+                        self.extra_settings_var.set(settings.get("api_key_paid", False))
 
                         # Load tema
                         loaded_theme = settings.get("theme", "dark")
@@ -1091,6 +1102,7 @@ Konfigurasi perilaku aplikasi:
             "model": self.model_var.get(),
             "keyword_count": self.keyword_count_var.get(),
             "priority": self.priority_var.get(),
+            "api_key_paid": self.extra_settings_var.get(), # Save API key paid checkbox
         }
 
         try:
@@ -1265,20 +1277,33 @@ Konfigurasi perilaku aplikasi:
             delay_sec = 10
 
         # Validasi jumlah worker
-        num_api_keys = len(current_api_keys)
-        max_workers = 25
-        try:
-            num_workers = int(self.workers_var.get().strip() or "3")
-            if num_workers <= 0:
-                num_workers = 1
-            elif num_workers > num_api_keys:
-                num_workers = num_api_keys
-            elif num_workers > max_workers:
-                num_workers = max_workers
-            self.workers_var.set(str(num_workers))
-        except ValueError:
-            self.workers_var.set("3")
-            num_workers = 3
+        if self.extra_settings_var.get():
+            # Mode paid: tidak batasi ke jumlah API key, max worker lebih tinggi
+            try:
+                num_workers = int(self.workers_var.get().strip() or "3")
+                if num_workers <= 0:
+                    num_workers = 1
+                elif num_workers > 100:
+                    num_workers = 100
+                self.workers_var.set(str(num_workers))
+            except ValueError:
+                self.workers_var.set("3")
+                num_workers = 3
+        else:
+            num_api_keys = len(current_api_keys)
+            max_workers = 25
+            try:
+                num_workers = int(self.workers_var.get().strip() or "3")
+                if num_workers <= 0:
+                    num_workers = 1
+                elif num_workers > num_api_keys:
+                    num_workers = num_api_keys
+                elif num_workers > max_workers:
+                    num_workers = max_workers
+                self.workers_var.set(str(num_workers))
+            except ValueError:
+                self.workers_var.set("3")
+                num_workers = 3
 
         # Reset counter dan timer
         self.processed_count = 0
@@ -1331,6 +1356,9 @@ Konfigurasi perilaku aplikasi:
             args=(input_dir, output_dir, current_api_keys,
                   rename_enabled, delay_sec, num_workers,
                   auto_kategori_enabled, auto_foldering_enabled, self.model_var.get(), str(keyword_count), priority),
+            kwargs={
+                'bypass_api_key_limit': self.extra_settings_var.get()
+            },
             daemon=True
         )
         self.processing_thread.start()
@@ -1357,8 +1385,9 @@ Konfigurasi perilaku aplikasi:
         self.delete_api_button.configure(state=tk.DISABLED)
         self.input_button.configure(state=tk.DISABLED)
         self.output_button.configure(state=tk.DISABLED)
+        self.extra_settings_checkbox.configure(state=tk.DISABLED)
 
-    def _run_processing(self, input_dir, output_dir, api_keys, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled, selected_model=None, keyword_count="49", priority="Kualitas"):
+    def _run_processing(self, input_dir, output_dir, api_keys, rename_enabled, delay_seconds, num_workers, auto_kategori_enabled, auto_foldering_enabled, selected_model=None, keyword_count="49", priority="Kualitas", bypass_api_key_limit=False):
         """Thread worker untuk pemrosesan batch."""
         from src.utils.system_checks import GHOSTSCRIPT_PATH as gs_path_found
         log_message(f"Ghostscript path passed to worker thread: {gs_path_found}", "info")
@@ -1376,7 +1405,8 @@ Konfigurasi perilaku aplikasi:
                 auto_foldering_enabled=auto_foldering_enabled,
                 selected_model=selected_model,
                 keyword_count=keyword_count,
-                priority=priority
+                priority=priority,
+                bypass_api_key_limit=bypass_api_key_limit
             )
 
             self.processed_count = result.get("processed_count", 0)
@@ -1538,6 +1568,7 @@ Konfigurasi perilaku aplikasi:
             self.delete_api_button.configure(state=tk.NORMAL)
             self.input_button.configure(state=tk.NORMAL)
             self.output_button.configure(state=tk.NORMAL)
+            self.extra_settings_checkbox.configure(state=tk.NORMAL)
         except Exception as e:
             print(f"Error saat reset UI: {e}")
             import traceback
