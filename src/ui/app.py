@@ -51,7 +51,7 @@ from src.metadata.exif_writer import check_exiftool_exists # Keep this import fo
 from src.api.api_key_checker import check_api_keys_status
 
 # Konstanta aplikasi
-APP_VERSION = "3.2.1" # Updated version
+APP_VERSION = "3.3.0" # Updated version
 CONFIG_FILE = "config.json"
 
 class MetadataApp(ctk.CTk):
