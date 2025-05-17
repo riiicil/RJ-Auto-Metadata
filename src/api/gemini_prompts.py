@@ -52,8 +52,33 @@ Analyze the provided image and generate the following metadata strictly in Engli
     - Do not repeat the same words or compound words
     - Do not include links, specific camera information, and trademarks (except for Editorial content)
     - All keywords are need to be relevant and encompass various aspects of the image and ways to find it
-    
-    
+
+4.  Adobe Stock Category: Choose the single most relevant category for this image from the following list (write the number and name, e.g., "5. The Environment"):
+     1. Animals
+     2. Buildings and Architecture
+     3. Business
+     4. Drinks
+     5. The Environment
+     6. States of Mind
+     7. Food
+     8. Graphic Resources
+     9. Hobbies and Leisure
+     10. Industry
+     11. Landscapes
+     12. Lifestyle
+     13. People
+     14. Plants and Flowers
+     15. Culture and Religion
+     16. Science
+     17. Social Issues
+     18. Sports
+     19. Technology
+     20. Transport
+     21. Travel
+
+5.  Shutterstock Category: Choose the single most relevant category for this image from the following list (write the name exactly as shown):
+     Abstract, Animals/Wildlife, Arts, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and drink, Healthcare/Medical, Holidays, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, Transportation, Vintage
+
 Ensure all outputs are in English.
 
 Provide the output STRICTLY in the following format, with each item on a new line and no extra text before or after:
@@ -61,6 +86,8 @@ Provide the output STRICTLY in the following format, with each item on a new lin
 Title: [Generated Title Here]
 Description: [Generated Description Here]
 Keywords: [keyword1, keyword2, keyword3, ..., keywordN]
+AdobeStockCategory: [number. name]
+ShutterstockCategory: [name]
 '''
 
 PROMPT_TEXT_PNG = '''
@@ -102,6 +129,31 @@ Analyze the provided image which has a transparent background and generate the f
    - Do not include links, specific camera information, and trademarks (except for Editorial content).
    - All keywords need to be relevant and encompass various aspects of the subject(s) and ways to find it.
 
+4.  Adobe Stock Category: Choose the single most relevant category for this image from the following list (write the number and name, e.g., "5. The Environment"):
+     1. Animals
+     2. Buildings and Architecture
+     3. Business
+     4. Drinks
+     5. The Environment
+     6. States of Mind
+     7. Food
+     8. Graphic Resources
+     9. Hobbies and Leisure
+     10. Industry
+     11. Landscapes
+     12. Lifestyle
+     13. People
+     14. Plants and Flowers
+     15. Culture and Religion
+     16. Science
+     17. Social Issues
+     18. Sports
+     19. Technology
+     20. Transport
+     21. Travel
+
+5.  Shutterstock Category: Choose the single most relevant category for this image from the following list (write the name exactly as shown):
+     Abstract, Animals/Wildlife, Arts, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and drink, Healthcare/Medical, Holidays, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, Transportation, Vintage
 
 Ensure all outputs are in English.
 
@@ -110,6 +162,8 @@ Provide the output STRICTLY in the following format, with each item on a new lin
 Title: [Generated Title Here]
 Description: [Generated Description Here]
 Keywords: [keyword1, keyword2, keyword3, ..., keywordN]
+AdobeStockCategory: [number. name]
+ShutterstockCategory: [name]
 '''
 
 PROMPT_TEXT_VIDEO = '''
@@ -150,7 +204,32 @@ Analyze the provided image frame from a video and generate the following metadat
    - Do not repeat the same words or compound words
    - Do not include links, specific camera information, and trademarks (except for Editorial content)
    - All keywords need to be relevant and encompass various aspects of the video and ways to find it
-    
+ 4.  Adobe Stock Category: Choose the single most relevant category for this image from the following list (write the number and name, e.g., "5. The Environment"):
+     1. Animals
+     2. Buildings and Architecture
+     3. Business
+     4. Drinks
+     5. The Environment
+     6. States of Mind
+     7. Food
+     8. Graphic Resources
+     9. Hobbies and Leisure
+     10. Industry
+     11. Landscapes
+     12. Lifestyle
+     13. People
+     14. Plants and Flowers
+     15. Culture and Religion
+     16. Science
+     17. Social Issues
+     18. Sports
+     19. Technology
+     20. Transport
+     21. Travel
+
+5.  Shutterstock Category: Choose the single most relevant category for this image from the following list (write the name exactly as shown):
+     Abstract, Animals/Wildlife, Arts, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and drink, Healthcare/Medical, Holidays, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, Transportation, Vintage
+   
 Ensure all outputs are in English.
 
 Provide the output STRICTLY in the following format, with each item on a new line and no extra text before or after:
@@ -158,6 +237,8 @@ Provide the output STRICTLY in the following format, with each item on a new lin
 Title: [Generated Title Here]
 Description: [Generated Description Here]
 Keywords: [keyword1, keyword2, keyword3, ..., keywordN]
+AdobeStockCategory: [number. name]
+ShutterstockCategory: [name]
 '''
 
 
@@ -177,6 +258,32 @@ Analyze the provided image and generate the following metadata strictly in Engli
    - Provide relevant keywords covering the image content.
    - Ensure the list contains between 60 and 65 single-word keywords.
 
+4.  Adobe Stock Category: Choose the single most relevant category for this image from the following list (write the number and name, e.g., "5. The Environment"):
+     1. Animals
+     2. Buildings and Architecture
+     3. Business
+     4. Drinks
+     5. The Environment
+     6. States of Mind
+     7. Food
+     8. Graphic Resources
+     9. Hobbies and Leisure
+     10. Industry
+     11. Landscapes
+     12. Lifestyle
+     13. People
+     14. Plants and Flowers
+     15. Culture and Religion
+     16. Science
+     17. Social Issues
+     18. Sports
+     19. Technology
+     20. Transport
+     21. Travel
+
+5.  Shutterstock Category: Choose the single most relevant category for this image from the following list (write the name exactly as shown):
+     Abstract, Animals/Wildlife, Arts, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and drink, Healthcare/Medical, Holidays, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, Transportation, Vintage
+
 Ensure all outputs are in English.
 
 Provide the output STRICTLY in the following format, with each item on a new line and no extra text before or after:
@@ -184,6 +291,8 @@ Provide the output STRICTLY in the following format, with each item on a new lin
 Title: [Generated Title Here]
 Description: [Generated Description Here]
 Keywords: [keyword1, keyword2, keyword3, ..., keywordN]
+AdobeStockCategory: [number. name]
+ShutterstockCategory: [name]
 '''
 
 PROMPT_TEXT_PNG_BALANCED = '''
@@ -202,6 +311,32 @@ Analyze the provided image which has a transparent background and generate the f
    - Avoid keywords related to the background (e.g., 'isolated', 'white background').
    - Ensure the list contains between 60 and 65 single-word keywords.
 
+4.  Adobe Stock Category: Choose the single most relevant category for this image from the following list (write the number and name, e.g., "5. The Environment"):
+     1. Animals
+     2. Buildings and Architecture
+     3. Business
+     4. Drinks
+     5. The Environment
+     6. States of Mind
+     7. Food
+     8. Graphic Resources
+     9. Hobbies and Leisure
+     10. Industry
+     11. Landscapes
+     12. Lifestyle
+     13. People
+     14. Plants and Flowers
+     15. Culture and Religion
+     16. Science
+     17. Social Issues
+     18. Sports
+     19. Technology
+     20. Transport
+     21. Travel
+
+5.  Shutterstock Category: Choose the single most relevant category for this image from the following list (write the name exactly as shown):
+     Abstract, Animals/Wildlife, Arts, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and drink, Healthcare/Medical, Holidays, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, Transportation, Vintage
+
 Ensure all outputs are in English.
 
 Provide the output STRICTLY in the following format, with each item on a new line and no extra text before or after:
@@ -209,6 +344,8 @@ Provide the output STRICTLY in the following format, with each item on a new lin
 Title: [Generated Title Here]
 Description: [Generated Description Here]
 Keywords: [keyword1, keyword2, keyword3, ..., keywordN]
+AdobeStockCategory: [number. name]
+ShutterstockCategory: [name]
 '''
 
 PROMPT_TEXT_VIDEO_BALANCED = '''
@@ -228,6 +365,32 @@ Analyze the provided image frame from a video and generate the following metadat
    - Provide relevant keywords covering the video content (static and dynamic aspects).
    - Ensure the list contains between 60 and 65 single-word keywords.
 
+4.  Adobe Stock Category: Choose the single most relevant category for this image from the following list (write the number and name, e.g., "5. The Environment"):
+     1. Animals
+     2. Buildings and Architecture
+     3. Business
+     4. Drinks
+     5. The Environment
+     6. States of Mind
+     7. Food
+     8. Graphic Resources
+     9. Hobbies and Leisure
+     10. Industry
+     11. Landscapes
+     12. Lifestyle
+     13. People
+     14. Plants and Flowers
+     15. Culture and Religion
+     16. Science
+     17. Social Issues
+     18. Sports
+     19. Technology
+     20. Transport
+     21. Travel
+
+5.  Shutterstock Category: Choose the single most relevant category for this image from the following list (write the name exactly as shown):
+     Abstract, Animals/Wildlife, Arts, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and drink, Healthcare/Medical, Holidays, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, Transportation, Vintage
+
 Ensure all outputs are in English.
 
 Provide the output STRICTLY in the following format, with each item on a new line and no extra text before or after:
@@ -235,6 +398,8 @@ Provide the output STRICTLY in the following format, with each item on a new lin
 Title: [Generated Title Here]
 Description: [Generated Description Here]
 Keywords: [keyword1, keyword2, keyword3, ..., keywordN]
+AdobeStockCategory: [number. name]
+ShutterstockCategory: [name]
 '''
 
 # --- CEPAT (dari draft_prompts.md) ---
@@ -244,6 +409,31 @@ Analyze the provided image and generate the following metadata strictly in Engli
 1. Title: Generate a title (minimum 6 words, maximum 160 characters).
 2. Description: Generate a description (minimum 6 words, maximum 160 characters).
 3. Keywords: Generate 50 to 60 single-word keywords, separated by commas.
+4.  Adobe Stock Category: Choose the single most relevant category for this image from the following list (write the number and name, e.g., "5. The Environment"):
+     1. Animals
+     2. Buildings and Architecture
+     3. Business
+     4. Drinks
+     5. The Environment
+     6. States of Mind
+     7. Food
+     8. Graphic Resources
+     9. Hobbies and Leisure
+     10. Industry
+     11. Landscapes
+     12. Lifestyle
+     13. People
+     14. Plants and Flowers
+     15. Culture and Religion
+     16. Science
+     17. Social Issues
+     18. Sports
+     19. Technology
+     20. Transport
+     21. Travel
+
+5.  Shutterstock Category: Choose the single most relevant category for this image from the following list (write the name exactly as shown):
+     Abstract, Animals/Wildlife, Arts, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and drink, Healthcare/Medical, Holidays, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, Transportation, Vintage
 
 Ensure all outputs are in English.
 
@@ -252,6 +442,8 @@ Provide the output STRICTLY in the following format, with each item on a new lin
 Title: [Generated Title Here]
 Description: [Generated Description Here]
 Keywords: [keyword1, keyword2, keyword3, ..., keywordN]
+AdobeStockCategory: [number. name]
+ShutterstockCategory: [name]
 '''
 
 PROMPT_TEXT_PNG_FAST = '''
@@ -260,6 +452,31 @@ Analyze the provided image which has a transparent background and generate the f
 1. Title: Generate a title for the main subject(s) (minimum 6 words, maximum 160 characters).
 2. Description: Generate a description for the main subject(s) (minimum 6 words, maximum 160 characters).
 3. Keywords: Generate 50 to 60 single-word keywords, separated by commas, related ONLY to the main subject(s).
+4.  Adobe Stock Category: Choose the single most relevant category for this image from the following list (write the number and name, e.g., "5. The Environment"):
+     1. Animals
+     2. Buildings and Architecture
+     3. Business
+     4. Drinks
+     5. The Environment
+     6. States of Mind
+     7. Food
+     8. Graphic Resources
+     9. Hobbies and Leisure
+     10. Industry
+     11. Landscapes
+     12. Lifestyle
+     13. People
+     14. Plants and Flowers
+     15. Culture and Religion
+     16. Science
+     17. Social Issues
+     18. Sports
+     19. Technology
+     20. Transport
+     21. Travel
+
+5.  Shutterstock Category: Choose the single most relevant category for this image from the following list (write the name exactly as shown):
+     Abstract, Animals/Wildlife, Arts, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and drink, Healthcare/Medical, Holidays, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, Transportation, Vintage
 
 Ensure all outputs are in English.
 
@@ -268,6 +485,8 @@ Provide the output STRICTLY in the following format, with each item on a new lin
 Title: [Generated Title Here]
 Description: [Generated Description Here]
 Keywords: [keyword1, keyword2, keyword3, ..., keywordN]
+AdobeStockCategory: [number. name]
+ShutterstockCategory: [name]
 '''
 
 PROMPT_TEXT_VIDEO_FAST = '''
@@ -276,6 +495,31 @@ Analyze the provided image frame from a video and generate the following metadat
 1. Title: Generate a title for the video content (minimum 6 words, maximum 160 characters).
 2. Description: Generate a description for the video content (minimum 6 words, maximum 160 characters).
 3. Keywords: Generate 50 to 60 single-word keywords, separated by commas, covering the video content.
+4.  Adobe Stock Category: Choose the single most relevant category for this image from the following list (write the number and name, e.g., "5. The Environment"):
+     1. Animals
+     2. Buildings and Architecture
+     3. Business
+     4. Drinks
+     5. The Environment
+     6. States of Mind
+     7. Food
+     8. Graphic Resources
+     9. Hobbies and Leisure
+     10. Industry
+     11. Landscapes
+     12. Lifestyle
+     13. People
+     14. Plants and Flowers
+     15. Culture and Religion
+     16. Science
+     17. Social Issues
+     18. Sports
+     19. Technology
+     20. Transport
+     21. Travel
+
+5.  Shutterstock Category: Choose the single most relevant category for this image from the following list (write the name exactly as shown):
+     Abstract, Animals/Wildlife, Arts, Backgrounds/Textures, Beauty/Fashion, Buildings/Landmarks, Business/Finance, Celebrities, Education, Food and drink, Healthcare/Medical, Holidays, Industrial, Interiors, Miscellaneous, Nature, Objects, Parks/Outdoor, People, Religion, Science, Signs/Symbols, Sports/Recreation, Technology, Transportation, Vintage
 
 Ensure all outputs are in English.
 
@@ -284,4 +528,6 @@ Provide the output STRICTLY in the following format, with each item on a new lin
 Title: [Generated Title Here]
 Description: [Generated Description Here]
 Keywords: [keyword1, keyword2, keyword3, ..., keywordN]
+AdobeStockCategory: [number. name]
+ShutterstockCategory: [name]
 ''' 

@@ -181,7 +181,7 @@ def write_exif_with_exiftool(image_path, output_path, metadata, stop_event):
     ]
 
     if title:
-        truncated_title = title[:64].strip() # Max 64 chars for Title/ObjectName
+        truncated_title = title[:160].strip() # Max 64 chars for Title/ObjectName
         command.extend([f'-Title={truncated_title}', f'-ObjectName={truncated_title}'])
 
     if description:

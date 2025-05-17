@@ -314,51 +314,41 @@ def _attempt_gemini_request(
         return http_status_code, response_data, "api_error", api_error_message
 
 def _extract_metadata_from_text(generated_text: str, keyword_count: str) -> dict | None:
-    """Extracts Title, Description, and Keywords from the generated text.
-
-    Args:
-        generated_text: The raw text output from the Gemini API.
-        keyword_count: The desired number of keywords (as a string).
-
-    Returns:
-        A dictionary with {"title": ..., "description": ..., "tags": ...} if extraction 
-        is successful (at least one field found), otherwise None.
-    """
+    """Extracts Title, Description, Keywords, and Categories from the generated text."""
     title = ""
     description = ""
     tags = []
-    
+    as_category = ""
+    ss_category = ""
     try:
         title_match = re.search(r"^Title:\s*(.*)", generated_text, re.MULTILINE | re.IGNORECASE)
         if title_match: title = title_match.group(1).strip()
-        
         desc_match = re.search(r"^Description:\s*(.*)", generated_text, re.MULTILINE | re.IGNORECASE)
         if desc_match: description = desc_match.group(1).strip()
-        
-        tags_match = re.search(r"^Keywords:\s*(.*)", generated_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
-        if tags_match:
-            tags_raw = tags_match.group(1).strip()
-            tags_list = [tag.strip() for tag in tags_raw.split(',') if tag.strip()]
-            try:
-                max_tags = int(keyword_count)
-                if not (1 <= max_tags <= 60): 
-                    max_tags = 49 # Default safe limit
-            except ValueError:
-                max_tags = 49
-            tags = tags_list[:max_tags]
-            
-        # Only return data if at least one field was successfully extracted
-        if title or description or tags:
-            return {"title": title, "description": description, "tags": tags}
-        else:
-            # If structure exists but all fields are empty, it's still a failure to extract meaningful data
-            log_message(f"  (_extract) Struktur T/D/K ditemukan tapi kosong. Teks: {generated_text[:100]}...", "warning")
-            return None
-            
+        # Perbaiki parsing keywords agar tidak membawa kategori
+        keywords_match = re.search(r"^Keywords:\s*(.*)", generated_text, re.MULTILINE | re.IGNORECASE)
+        if keywords_match:
+            keywords_line = keywords_match.group(1).strip()
+            # Jika ada kategori di belakang, potong di situ
+            keywords_line = re.split(r"AdobeStockCategory:|ShutterstockCategory:", keywords_line)[0].strip()
+            tags = [k.strip() for k in keywords_line.split(",") if k.strip()]
+        # Parsing kategori
+        as_cat_match = re.search(r"AdobeStockCategory:\s*([\d]+\.?\s*[^\n]*)", generated_text)
+        if as_cat_match:
+            as_category = as_cat_match.group(1).strip()
+        ss_cat_match = re.search(r"ShutterstockCategory:\s*([^\n]*)", generated_text)
+        if ss_cat_match:
+            ss_category = ss_cat_match.group(1).strip()
     except Exception as e:
-        # Catch potential regex errors or other unexpected issues during extraction
-        log_message(f"  Error saat ekstraksi T/D/K: {e}", "error")
+        log_message(f"[ERROR] Gagal parsing metadata dari Gemini: {e}")
         return None
+    return {
+        "title": title,
+        "description": description,
+        "tags": tags,
+        "as_category": as_category,
+        "ss_category": ss_category
+    }
 
 def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, use_video_prompt=False, selected_model_input=None, keyword_count="49", priority="Kualitas"):
     log_message(f"Memulai get_gemini_metadata untuk {os.path.basename(image_path)} dengan prioritas: {priority}, model input: {selected_model_input}")
@@ -408,6 +398,7 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
             use_png_prompt, use_video_prompt, priority, image_basename
         )
 
+    
         if http_status == 200 and error_type is None: # Sukses sempurna
             # Ekstrak metadata dari response_data
             if response_data and "candidates" in response_data and response_data["candidates"]:

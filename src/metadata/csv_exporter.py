@@ -16,6 +16,7 @@
 
 # src/metadata/csv_exporter.py
 import os
+import re
 from src.utils.logging import log_message
 from src.utils.file_utils import sanitize_csv_field, write_to_csv
 from src.metadata.categories.for_adobestock import map_to_adobe_stock_category
@@ -43,20 +44,47 @@ def write_to_platform_csvs(csv_dir, filename, title, description, keywords, auto
         
         # Sanitasi data
         safe_filename = sanitize_csv_field(filename)
-        safe_title = sanitize_csv_field(title)
-        safe_description = sanitize_csv_field(description)
-        
-        if isinstance(keywords, list):
-            ss_keywords = ', '.join([sanitize_csv_field(k) for k in keywords if k])
-            as_keywords = ', '.join([sanitize_csv_field(k) for k in keywords if k])
+        # Jika title/dll dict hasil AI, ambil fieldnya
+        as_category = ""
+        ss_category = ""
+        if isinstance(title, dict):
+            meta = title
+            safe_title = sanitize_csv_field(meta.get("title", ""))
+            safe_description = sanitize_csv_field(meta.get("description", ""))
+            keywords_val = meta.get("tags", [])
+            if isinstance(keywords_val, list):
+                ss_keywords = ', '.join([sanitize_csv_field(k) for k in keywords_val if k])
+                as_keywords = ', '.join([sanitize_csv_field(k) for k in keywords_val if k])
+            else:
+                ss_keywords = sanitize_csv_field(keywords_val)
+                as_keywords = sanitize_csv_field(keywords_val)
+            # Ambil kategori dari hasil AI jika ada
+            as_cat_ai = meta.get("as_category", "")
+            ss_cat_ai = meta.get("ss_category", "")
+            # Untuk AS, ambil hanya angka di depan (misal '5. The Environment' -> '5')
+            if as_cat_ai:
+                match = re.match(r"(\d+)", as_cat_ai)
+                if match:
+                    as_category = match.group(1)
+            if ss_cat_ai:
+                ss_category = sanitize_csv_field(ss_cat_ai)
         else:
-            ss_keywords = sanitize_csv_field(keywords)
-            as_keywords = sanitize_csv_field(keywords)
+            safe_title = sanitize_csv_field(title)
+            safe_description = sanitize_csv_field(description)
+            if isinstance(keywords, list):
+                ss_keywords = ', '.join([sanitize_csv_field(k) for k in keywords if k])
+                as_keywords = ', '.join([sanitize_csv_field(k) for k in keywords if k])
+            else:
+                ss_keywords = sanitize_csv_field(keywords)
+                as_keywords = sanitize_csv_field(keywords)
         
         # Tentukan kategori jika auto_kategori diaktifkan
         if auto_kategori_enabled:
-            as_category = map_to_adobe_stock_category(safe_title, safe_description, keywords if isinstance(keywords, list) else [])
-            ss_category = map_to_shutterstock_category(safe_title, safe_description, keywords if isinstance(keywords, list) else [])
+            # Jika hasil AI tidak ada, fallback ke rule-based
+            if not as_category:
+                as_category = map_to_adobe_stock_category(safe_title, safe_description, keywords if isinstance(keywords, list) else [])
+            if not ss_category:
+                ss_category = map_to_shutterstock_category(safe_title, safe_description, keywords if isinstance(keywords, list) else [])
             log_message(f"  Auto Kategori: Aktif (AS: {as_category}, SS: {ss_category})")
         else:
             as_category = ""
