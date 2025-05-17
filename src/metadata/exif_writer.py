@@ -141,7 +141,10 @@ def write_exif_with_exiftool(image_path, output_path, metadata, stop_event):
     # Bersihkan metadata yang ada terlebih dahulu (Best effort)
     clear_command = [
         exiftool_cmd,
-        "-all=",
+        "-XMP:Title=",
+        "-XMP:Description=",
+        "-XMP:Subject=",
+        "-IPTC:Keywords=",
         "-overwrite_original",
         output_path
     ]
