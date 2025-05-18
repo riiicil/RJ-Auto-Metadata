@@ -20,6 +20,8 @@ __pycache__/
 # Distribution / packaging
 build/
 dist/
+dist_nuitka/
+dist_nuitka_no_cs/
 *.spec
 *.egg-info/
 .eggs/
@@ -107,3 +109,12 @@ processed_cache.json
 # Sensitive configuration (keep existing)
 firebase_config.py
 src/config/firebase_config.py
+
+setup.iss
+*.zip
+*.exe
+*.dmg
+*.deb
+*.rpm
+*.tar.gz
+*.tar.bz2

@@ -16,6 +16,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 -
 ---
+## [3.3.1] - 2025-05-19
+
+### Added
+- **Enhanced Metadata Extraction:** Updated `_extract_metadata_from_text` function in `gemini_api.py` to include AdobeStockCategory and ShutterstockCategory in the output.
+
+### Changed
+- **Improved Keyword Handling:** Modified keyword extraction logic to exclude categories during the extraction process.
+- **Enhanced CSV Export:** Improved `write_to_platform_csvs` function to better support metadata from AI results, including proper category extraction.
+
+### Fixed
+- **EXIF Writing Stability:** Fixed issues in `exif_writer.py` to enhance stability when writing metadata to different file formats.
+---
 ## [3.3.0] - 2025-05-15 Feature Release
 
 ### Added
@@ -25,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Worker Validation Logic:** When the 'API key paid?' option is enabled, the application no longer limits the number of workers to the number of API keys. This allows paid users to fully utilize their API quota and hardware, up to a maximum of 100 workers.
 - **Configuration:** The state of the 'API key paid?' option is now saved and loaded automatically from `config.json` like other settings.
 ---
-## [3.2.1] - 2025-05-13 Optimize Patch Release
+## [3.2.1] - 2025-05-13 Optimize Feature Release
 
 ### Fixed
 - **API Key Checker Button:** Disable the 'Check API' button when processing starts, and reset it to enable it when the process stops or completes.
