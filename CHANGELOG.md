@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 -
 ---
+## [3.3.2] - 2025-05-20
+
+### Changed
+- **Keyword Handling Optimized:** All keyword outputs are now always deduplicated and strictly limited to the user-specified maximum. This ensures no more over-limit or duplicate keywords, regardless of API response or file type.
+
+### Fixed
+- **Keyword Limit Bug:** Fixed an issue where the number of keywords could exceed the user-set limit (sometimes over 100) or contain duplicates, especially for vector and video files. Now, the keyword count is always enforced as intended.
+---
 ## [3.3.1] - 2025-05-19
 
 ### Added

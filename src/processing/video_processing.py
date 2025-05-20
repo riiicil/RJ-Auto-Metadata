@@ -269,6 +269,8 @@ def process_video(input_path, output_dir, selected_api_key: str, stop_event, aut
         return "failed_api", None, None
     elif isinstance(metadata_result, dict):
         metadata = metadata_result
+        # Pastikan keyword_count ikut dikirim ke metadata
+        metadata['keyword_count'] = keyword_count
     else:
         log_message(f"  API call gagal mendapatkan metadata (hasil tidak valid).")
         return "failed_api", None, None

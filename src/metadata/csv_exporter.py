@@ -22,7 +22,7 @@ from src.utils.file_utils import sanitize_csv_field, write_to_csv
 from src.metadata.categories.for_adobestock import map_to_adobe_stock_category
 from src.metadata.categories.for_shutterstock import map_to_shutterstock_category
 
-def write_to_platform_csvs(csv_dir, filename, title, description, keywords, auto_kategori_enabled=True, is_vector=False):
+def write_to_platform_csvs(csv_dir, filename, title, description, keywords, auto_kategori_enabled=True, is_vector=False, max_keywords=49):
     """
     Menulis metadata ke file CSV untuk AdobeStock dan ShutterStock.
     
@@ -34,6 +34,7 @@ def write_to_platform_csvs(csv_dir, filename, title, description, keywords, auto
         keywords: List keyword/tag
         auto_kategori_enabled: Flag untuk mengaktifkan penentuan kategori otomatis
         is_vector: Boolean, True jika file asli adalah vektor (eps, ai, svg)
+        max_keywords: Maximum number of keywords to include
         
     Returns:
         Boolean: True jika berhasil, False jika gagal
@@ -77,6 +78,12 @@ def write_to_platform_csvs(csv_dir, filename, title, description, keywords, auto
             else:
                 ss_keywords = sanitize_csv_field(keywords)
                 as_keywords = sanitize_csv_field(keywords)
+        
+        # --- Tambahan: deduplikasi dan limit keyword ---
+        if isinstance(keywords, list):
+            keywords = list(dict.fromkeys(keywords))
+            keywords = keywords[:max_keywords]
+        # --- END tambahan ---
         
         # Tentukan kategori jika auto_kategori diaktifkan
         if auto_kategori_enabled:

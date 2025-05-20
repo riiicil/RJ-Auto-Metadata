@@ -332,6 +332,14 @@ def _extract_metadata_from_text(generated_text: str, keyword_count: str) -> dict
             # Jika ada kategori di belakang, potong di situ
             keywords_line = re.split(r"AdobeStockCategory:|ShutterstockCategory:", keywords_line)[0].strip()
             tags = [k.strip() for k in keywords_line.split(",") if k.strip()]
+            # Deduplicate dan limit sesuai keyword_count
+            tags = list(dict.fromkeys(tags))
+            try:
+                max_kw = int(keyword_count)
+                if max_kw < 1: max_kw = 49
+            except Exception:
+                max_kw = 49
+            tags = tags[:max_kw]
         # Parsing kategori
         as_cat_match = re.search(r"AdobeStockCategory:\s*([\d]+\.?\s*[^\n]*)", generated_text)
         if as_cat_match:

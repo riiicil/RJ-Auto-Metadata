@@ -106,7 +106,15 @@ def write_exif_with_exiftool(image_path, output_path, metadata, stop_event):
     title = metadata.get('title', '')
     description = metadata.get('description', '')
     tags = metadata.get('tags', [])
+    keyword_count = metadata.get('keyword_count', 49)
+    try:
+        max_kw = int(keyword_count)
+        if max_kw < 1: max_kw = 49
+    except Exception:
+        max_kw = 49
     cleaned_tags = [tag.strip() for tag in tags if tag.strip()]
+    cleaned_tags = list(dict.fromkeys(cleaned_tags))
+    cleaned_tags = cleaned_tags[:max_kw]
 
     if stop_event.is_set() or is_stop_requested():
         log_message("  Proses dihentikan sebelum menulis EXIF.")
@@ -290,7 +298,15 @@ def write_exif_to_video(input_path, output_path, metadata, stop_event):
     title = metadata.get('title', '')
     description = metadata.get('description', '')
     tags = metadata.get('tags', [])
+    keyword_count = metadata.get('keyword_count', 49)
+    try:
+        max_kw = int(keyword_count)
+        if max_kw < 1: max_kw = 49
+    except Exception:
+        max_kw = 49
     cleaned_tags = [tag.strip() for tag in tags if tag.strip()]
+    cleaned_tags = list(dict.fromkeys(cleaned_tags))
+    cleaned_tags = cleaned_tags[:max_kw]
 
     if stop_event.is_set() or is_stop_requested():
         log_message("  Proses dihentikan sebelum menulis metadata ke video.")

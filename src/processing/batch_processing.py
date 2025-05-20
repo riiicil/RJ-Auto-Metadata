@@ -33,6 +33,7 @@ from src.processing.vector_processing.format_svg_processing import convert_svg_t
 from src.processing.video_processing import process_video
 from src.api.gemini_api import check_stop_event, is_stop_requested, select_smart_api_key
 from src.metadata.csv_exporter import write_to_platform_csvs
+from src.metadata.exif_writer import write_exif_with_exiftool
 
 def process_vector_file(input_path, output_dir, selected_api_key: str, ghostscript_path, stop_event, auto_kategori_enabled=True, selected_model=None, keyword_count="49", priority="Kualitas"):
     """
@@ -158,6 +159,11 @@ def process_vector_file(input_path, output_dir, selected_api_key: str, ghostscri
             log_message(f"  Menimpa file output yang sudah ada: {filename}")
             shutil.copy2(input_path, initial_output_path)
         
+        # Tulis metadata EXIF
+        # Pastikan keyword_count ikut dikirim ke metadata
+        if isinstance(metadata, dict):
+            metadata['keyword_count'] = keyword_count
+        proceed, exif_status = write_exif_with_exiftool(input_path, initial_output_path, metadata, stop_event)
         
         return "processed_no_exif", metadata, initial_output_path
     except Exception as e:
@@ -392,6 +398,12 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
                     is_vector_file = original_filename.lower().endswith(('.eps', '.ai', '.svg'))
                     
                     # Tulis ke CSV menggunakan nama file akhir dan judul yang sesuai
+                    # Pastikan keyword_count dipakai untuk limit
+                    try:
+                        max_keywords = int(keyword_count)
+                        if max_keywords < 1: max_keywords = 49
+                    except Exception:
+                        max_keywords = 49
                     write_to_platform_csvs(
                         csv_subfolder,
                         final_filename_for_csv,
@@ -399,7 +411,8 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
                         processed_metadata.get('description', ''), # Deskripsi tetap dari metadata
                         processed_metadata.get('tags', []), # Keywords tetap dari metadata
                         auto_kategori_enabled=auto_kategori_enabled, # Flag kategori
-                        is_vector=is_vector_file # Pass the vector flag
+                        is_vector=is_vector_file, # Pass the vector flag
+                        max_keywords=max_keywords # Limit keyword
                     )
                 except Exception as e_csv:
                     log_message(f"  Warning: Gagal menulis metadata ke CSV untuk {final_filename_for_csv}: {e_csv}")

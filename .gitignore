@@ -118,3 +118,5 @@ setup.iss
 *.rpm
 *.tar.gz
 *.tar.bz2
+
+v*/
