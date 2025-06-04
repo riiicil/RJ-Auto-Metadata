@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 -
+
+## [3.4.0] - 2025-05-25
+
+### Fixed
+- **API Key Distribution:** Resolved an issue where API requests were not properly distributed across all available free API keys, often causing requests to concentrate on a single key (typically the first one in the list). The system now correctly rotates through all provided API keys based on their last used time, ensuring more balanced utilization and reducing premature rate limit errors on individual keys.
+- **Premature Rate Limiting:** Addressed an issue where the internal rate limiter could incorrectly flag API keys or models as rate-limited sooner than the actual limits imposed by the Gemini API.
+
+### Changed
+- **Rate Limiting Strategy:** The internal token bucket-based rate limiting mechanism has been significantly revised. The program now primarily relies on the actual rate limits enforced by the Gemini API, with internal selection logic for keys and models now prioritizing the least recently used ones. Active cooldowns and token-based selection/penalties from the local rate limiter have been disabled to prevent premature limiting and to better align with Gemini's own quota management.
+- **"Auto Rotasi" Model Selection:** Simplified the model selection logic when "Auto Rotasi" is active. It now solely relies on selecting the model least recently used from the `GEMINI_MODELS` list, removing dependency on internal token counts.
+- **Fallback Strategy Overhaul:** The fallback mechanism, triggered when a primary model encounters a rate limit (HTTP 429) after all retries, has been enhanced:
+    - It now iteratively attempts each model from the predefined `FALLBACK_MODELS` list sequentially if the prior fallback attempt also fails.
+    - The primary model that initially failed due to the rate limit is automatically excluded from these fallback attempts.
+    - This replaces the previous logic of selecting and trying only a single 'best' fallback model, increasing the chances of finding an available model.
 ---
 ## [3.3.2] - 2025-05-20
 

@@ -51,7 +51,7 @@ from src.metadata.exif_writer import check_exiftool_exists # Keep this import fo
 from src.api.api_key_checker import check_api_keys_status
 
 # Konstanta aplikasi
-APP_VERSION = "3.3.2" # Updated version
+APP_VERSION = "3.4.0" # Updated version
 CONFIG_FILE = "config.json"
 
 class MetadataApp(ctk.CTk):
@@ -978,7 +978,7 @@ Konfigurasi perilaku aplikasi:
         if os.name == 'nt':
             documents_path = os.path.join(os.environ.get('USERPROFILE', ''), 'Documents')
             if os.path.exists(documents_path):
-                config_dir = os.path.join(documents_path, "RJAutoMetadata")
+                config_dir = os.path.join(documents_path, "RJ Auto Metadata")
                 os.makedirs(config_dir, exist_ok=True)
                 return os.path.join(config_dir, CONFIG_FILE)
 
@@ -1056,10 +1056,10 @@ Konfigurasi perilaku aplikasi:
                             "gemini-2.0-flash",
                             "gemini-2.0-flash-lite",
                             "gemini-1.5-flash-8b",
-                            "gemini-1.5-flash",
-                            "gemini-1.5-pro",  
-                            "gemini-2.5-flash-preview-04-17",
-                            "gemini-2.5-pro-preview-03-25"
+                            "gemini-1.5-flash"
+                            # "gemini-1.5-pro",  
+                            # "gemini-2.5-flash-preview-04-17",
+                            # "gemini-2.5-pro-preview-03-25"
                         ]
                         self.available_priorities = ["Kualitas", "Seimbang", "Cepat"]
 
@@ -1114,7 +1114,7 @@ Konfigurasi perilaku aplikasi:
             if not os.access(config_dir, os.W_OK):
                 self._log(f"Warning: Direktori config tidak dapat ditulis: {config_dir}", "warning")
                 if os.name == 'nt':
-                    self.config_path = os.path.join(os.environ.get('USERPROFILE', ''), "RJAutoMetadata_config.json")
+                    self.config_path = os.path.join(os.environ.get('USERPROFILE', ''), "RJ Auto Metadata - config.json")
                     self._log(f"Mencoba fallback ke home dir: {self.config_path}", "info")
 
             self._log(f"Menyimpan pengaturan...", "info")

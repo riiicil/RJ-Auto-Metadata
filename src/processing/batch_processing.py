@@ -217,7 +217,7 @@ def process_image(input_path, output_dir, selected_api_key: str, ghostscript_pat
         log_message(f"  Format file tidak didukung: {ext_lower}")
         return "failed_format", None, None
 
-def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path, rename_enabled, auto_kategori_enabled, auto_foldering_enabled, selected_model=None, keyword_count="49", priority="Kualitas"):
+def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path, rename_enabled, auto_kategori_enabled, auto_foldering_enabled, selected_model=None, keyword_count="49", priority="Kualitas", stop_event=None):
     """
     Memproses satu file, menentukan tipe dan memanggil fungsi pemrosesan yang sesuai.
     
@@ -232,11 +232,15 @@ def process_single_file(input_path, output_dir, api_keys_list, ghostscript_path,
         selected_model: Selected model for processing
         keyword_count: Number of keywords to use for processing
         priority: Priority for processing
+        stop_event: Event threading untuk menghentikan proses (passed from parent)
     Returns:
         Dictionary dengan informasi hasil pemrosesan
     """
-    import threading
-    stop_event = threading.Event()
+    # Use the provided stop_event or create a new one if not provided
+    if stop_event is None:
+        import threading
+        stop_event = threading.Event()
+        
     original_filename = os.path.basename(input_path)
     final_output_path = None
     processed_metadata = None
@@ -466,6 +470,17 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
     reset_force_stop()
     
     try:
+        # Check for stop request immediately at start
+        if stop_event and stop_event.is_set() or is_stop_requested():
+            log_message("Proses dihentikan sebelum dimulai.", "warning")
+            return {
+                "processed_count": 0,
+                "failed_count": 0,
+                "skipped_count": 0,
+                "stopped_count": 0,
+                "total_files": 0
+            }
+            
         # Siapkan folder sementara untuk kompresi
         temp_folders = manage_temp_folders(input_dir, output_dir)
         
@@ -485,6 +500,17 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
         
         files_to_process = []
         for filename in dir_list:
+            # Check for stop in the file enumeration loop
+            if stop_event and stop_event.is_set() or is_stop_requested():
+                log_message("Proses dihentikan saat mengenumerasi file.", "warning")
+                return {
+                    "processed_count": 0,
+                    "failed_count": 0,
+                    "skipped_count": 0,
+                    "stopped_count": 0,
+                    "total_files": 0
+                }
+                
             if filename.lower().endswith(processable_extensions) and not filename.startswith('.'):
                 full_path = os.path.join(input_dir, filename)
                 if os.path.isfile(full_path):
@@ -515,7 +541,7 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                 "processed_count": 0,
                 "failed_count": 0,
                 "skipped_count": 0,
-                "stopped_count": 0
+                "stopped_count": total_files
             }
         
         processed_count = 0
@@ -534,50 +560,55 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
             except Exception as e:
                 log_message(f"Warning: Tidak dapat membuat direktori CSV utama: {e}", "warning")
         
-        # Batasi jumlah worker ke jumlah API key jika lebih sedikit
+        # NEW: Optimize worker count based on available API keys
+        # If bypass_api_key_limit is False, limit workers to API key count
+        effective_num_workers = num_workers
         if not bypass_api_key_limit and len(api_keys) < num_workers:
-            old_workers = num_workers
-            num_workers = len(api_keys)
-            log_message(f"Jumlah worker dibatasi menjadi {num_workers} karena hanya ada {len(api_keys)} API key.", "warning")
+            effective_num_workers = len(api_keys)
+            log_message(f"Menyesuaikan jumlah worker menjadi {effective_num_workers} agar sesuai dengan jumlah API key yang tersedia.", "warning")
         
         futures = []
         processed_files = set()
+        # Track current API key index for assignment
+        current_api_key_index = 0
         
-        with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            log_message(f"Mengirim {total_files} pekerjaan ke {num_workers} worker...", "warning")
+        with ThreadPoolExecutor(max_workers=effective_num_workers) as executor:
+            log_message(f"Mengirim {total_files} pekerjaan ke {effective_num_workers} worker...", "warning")
             
             batch_index = 0
             while batch_index < len(files_to_process) and not (stop_event and stop_event.is_set() or is_stop_requested()):
-                # --- ADAPTIVE COOLDOWN: Initialize counters for the current batch ---
-                current_batch_api_failures = 0
-                current_batch_files_processed = 0 # Track total processed in batch for percentage calculation
+                # Minimal delay between batches
+                if batch_index > 0 and delay_seconds > 0 and not (stop_event and stop_event.is_set() or is_stop_requested()):
+                    # Restore cooldown message
+                    cooldown_msg = f"Cool-down {delay_seconds} detik dulu ngabbbb..."
+                    log_message(cooldown_msg, "cooldown")
+                    
+                    # Apply user-defined delay between batches with stop check
+                    cooldown_start = time.time()
+                    while time.time() - cooldown_start < delay_seconds:
+                        if stop_event and stop_event.is_set() or is_stop_requested():
+                            log_message("Proses dihentikan selama cooldown.", "warning")
+                            break
+                        time.sleep(0.1)  # Check for stop every 100ms
                 
-                # Delay progresif antar batch untuk mengurangi rate limit
-                base_batch_delay = delay_seconds / 3.0
-                progressive_delay = base_batch_delay * (batch_index / num_workers) if batch_index > 0 else 0
-                progressive_delay = min(progressive_delay, 3.0)
-                
-                if progressive_delay > 0 and not (stop_event and stop_event.is_set()):
-                    time.sleep(progressive_delay)
+                # Check for stop again after cooldown
+                if stop_event and stop_event.is_set() or is_stop_requested():
+                    log_message("Proses dihentikan setelah cooldown.", "warning")
+                    break
                 
                 # Ambil batch file berikutnya
-                current_batch_paths = files_to_process[batch_index:batch_index + num_workers]
+                current_batch_paths = files_to_process[batch_index:batch_index + effective_num_workers]
                 current_batch = [f for f in current_batch_paths
                                  if os.path.exists(f) and f not in processed_files]
                 
                 if not current_batch:
-                    batch_index += num_workers
+                    batch_index += effective_num_workers
                     continue
                 
                 batch_futures = []
                 for idx, input_path in enumerate(current_batch):
                     if stop_event and stop_event.is_set() or is_stop_requested():
                         break
-                    
-                    if idx > 0 and not (stop_event and stop_event.is_set() or is_stop_requested()):
-                        small_delay = random.uniform(0, 2.0)
-                        if small_delay > 0:
-                            time.sleep(small_delay)
                     
                     if not os.path.exists(input_path) or input_path in processed_files:
                         continue
@@ -586,18 +617,24 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                     log_message(f" → Memproses {original_filename}...", "info") 
                     
                     try:
+                        # NEW: Assign a specific API key to each worker instead of passing the full list
+                        # This ensures each worker gets a dedicated API key in rotation
+                        assigned_api_key = api_keys[current_api_key_index % len(api_keys)]
+                        current_api_key_index = (current_api_key_index + 1) % len(api_keys)
+                        
                         future = executor.submit(
                             process_single_file,
                             input_path,
                             output_dir,
-                            api_keys,
-                            ghostscript_path, # Pass the path here
+                            [assigned_api_key],  # Pass a list with just one API key
+                            ghostscript_path,
                             rename_enabled,
                             auto_kategori_enabled,
                             auto_foldering_enabled,
                             selected_model,
                             keyword_count,
-                            priority
+                            priority,
+                            stop_event  # Pass the stop_event to the worker
                         )
                         batch_futures.append(future)
                         futures.append(future)
@@ -607,22 +644,20 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                         failed_count += 1
                         completed_count += 1
                 
-                # --- ADAPTIVE COOLDOWN: Update current_batch_size after submitting jobs ---
                 current_batch_size = len(batch_futures)
                 comp_count = completed_count + current_batch_size
                 
                 if batch_futures:
-                    # Tambahkan counting (completed_count/total_files) ke log batch
-                    # Log ini mungkin perlu diperbarui untuk tidak menampilkan completed_count, tapi jumlah file dalam batch ini?
-                    # Untuk sekarang biarkan dulu.
-                    log_message(f"Batch {batch_index//num_workers + 1} ({comp_count}/{total_files}): Menunggu hasil {len(batch_futures)} file...", "warning")
+                    log_message(f"Batch {batch_index//effective_num_workers + 1} ({comp_count}/{total_files}): Menunggu hasil {len(batch_futures)} file...", "warning")
                     
                     for future in concurrent.futures.as_completed(batch_futures):
                         if stop_event and stop_event.is_set() or is_stop_requested():
+                            # Cancel all remaining futures when stop is requested
+                            for remaining_future in batch_futures:
+                                if not remaining_future.done():
+                                    remaining_future.cancel()
+                            log_message("Proses dihentikan saat menunggu hasil batch.", "warning")
                             break
-                        
-                        # completed_count += 1 # Pindahkan ini ke setelah dapat hasil valid
-                        current_batch_files_processed += 1 # Hitung file yang hasilnya diterima di batch ini
                         
                         try:
                             result = future.result(timeout=120)
@@ -631,19 +666,12 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                             if not result:
                                 log_message(f"⨯ Hasil tidak valid diterima", "error")
                                 failed_count += 1
-                                # Consider if this counts as an API failure for adaptive cooldown? Maybe not directly.
                                 continue
                             
                             status = result.get("status", "failed")
                             input_path_result = result.get("input", "")
                             filename = os.path.basename(input_path_result) if input_path_result else "unknown file"
                             
-                            # --- ADAPTIVE COOLDOWN: Check for API related failures ---
-                            api_failure_statuses = ["failed_api", "failed_api_selection", "failed_api_list_empty"]
-                            if status in api_failure_statuses:
-                                current_batch_api_failures += 1
-                            # --- END ADAPTIVE CHECK ---
-
                             # Logika penanganan status lainnya (processed, skipped, stopped, other fails)
                             if status == "processed_exif" or status == "processed_no_exif":
                                 processed_count += 1
@@ -677,75 +705,45 @@ def batch_process_files(input_dir, output_dir, api_keys, ghostscript_path, renam
                                      log_message(f"✗ {filename} ({status})", "error")
                             
                         except concurrent.futures.TimeoutError:
-                            # completed_count += 1 # Timeout juga berarti satu pekerjaan selesai (meski gagal)
-                            current_batch_files_processed += 1 # Hitung sebagai diproses di batch ini
                             completed_count += 1 # Update total count
                             log_message(f"⨯ Timeout menunggu hasil pekerjaan untuk {filename if 'filename' in locals() else 'unknown file'}", "error")
                             failed_count += 1
-                            # Consider Timeout as a potential symptom of API overload?
-                            # current_batch_api_failures += 1 # Optional: Treat timeout as API failure for cooldown
                         except concurrent.futures.CancelledError:
-                            # current_batch_files_processed += 1 # Dibatalkan juga selesai
-                            # completed_count += 1
-                            # Tidak perlu dihitung sebagai failed atau API failure jika dibatalkan oleh user
                             log_message(f"Pekerjaan dibatalkan.", "warning")
                             stopped_count += 1
                         except Exception as e:
-                            # current_batch_files_processed += 1 # Error juga selesai
-                            # completed_count += 1
-                            failed_input_path = "unknown file"
                             log_message(f"Error saat memproses hasil: {e}", "error")
                             failed_count += 1
                         
                         # Update progres
                         if progress_callback:
                             progress_callback(completed_count, total_files)
-                    
-                    # --- ADAPTIVE COOLDOWN: Calculate failure rate and determine effective delay ---
-                    failure_percentage = 0.0
-                    if current_batch_size > 0:
-                        failure_percentage = (current_batch_api_failures / current_batch_size) * 100
-                    
-                    effective_delay = delay_seconds # Default ke nilai user
-                    FAILURE_THRESHOLD_PERCENT = 90.0 # Ambang batas 90%
-
-                    if current_batch_size > 0 and failure_percentage >= FAILURE_THRESHOLD_PERCENT:
-                        effective_delay = 60 # Paksa delay 60 detik
-                        log_message(f"Batch {batch_index//num_workers + 1} gagal API {failure_percentage:.1f}% ({current_batch_api_failures}/{current_batch_size}), cooldown adaptif 60 detik aktif.", "warning")
-                    # --- END ADAPTIVE COOLDOWN CALCULATION ---
                 
                 if stop_event and stop_event.is_set() or is_stop_requested():
                     log_message("Stop terdeteksi setelah memproses hasil batch.", "warning")
                     break
                 
-                batch_index += num_workers
-                is_last_batch = (batch_index >= len(files_to_process))
-                
-                # Cooldown antara batch (Gunakan effective_delay)
-                if not is_last_batch and not (stop_event and stop_event.is_set() or is_stop_requested()) and effective_delay > 0: # Check effective_delay
-                    cooldown_msg = f"Cool-down {effective_delay} detik dulu ngabbbb..."
-                    log_message(cooldown_msg, "cooldown")
-                    
-                    # Delay dengan pengecekan stop periodik
-                    for _ in range(int(effective_delay * 10)): # Gunakan effective_delay
-                        if stop_event and stop_event.is_set() or is_stop_requested():
-                            log_message("Proses dihentikan oleh pengguna (deteksi cooldown)", "warning")
-                            break
-                        time.sleep(0.1)
-                    
-                    if stop_event and stop_event.is_set() or is_stop_requested():
-                        break
+                batch_index += effective_num_workers
             
             # Batalkan pekerjaan yang tersisa jika dihentikan
             if stop_event and stop_event.is_set() or is_stop_requested():
                 log_message("Membatalkan pekerjaan yang tersisa...", "warning")
-                remaining_submitted = len(futures) - completed_count
-                stopped_count += remaining_submitted
-                completed_count += remaining_submitted 
+                # Set global force stop to ensure all subprocesses stop
+                from src.api.gemini_api import set_force_stop
+                set_force_stop()
                 
+                # Try to cancel all futures that aren't done yet
+                remaining_submitted = 0
                 for f in futures:
                     if not f.done():
                         f.cancel()
+                        remaining_submitted += 1
+                        
+                # Count all remaining jobs as stopped
+                if remaining_submitted > 0:
+                    log_message(f"Membatalkan {remaining_submitted} pekerjaan yang sedang berjalan.", "warning")
+                    stopped_count += remaining_submitted
+                    completed_count += remaining_submitted 
         
         # Bersihkan folder sementara
         try:

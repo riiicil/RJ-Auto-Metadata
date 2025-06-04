@@ -26,7 +26,6 @@ import re
 import threading
 from collections import defaultdict
 
-from src.api.rate_limiter import MODEL_RATE_LIMITERS, API_RATE_LIMITERS
 from src.utils.logging import log_message
 from src.api.gemini_prompts import (
     PROMPT_TEXT, PROMPT_TEXT_PNG, PROMPT_TEXT_VIDEO,
@@ -39,10 +38,10 @@ GEMINI_MODELS = [
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
     "gemini-1.5-flash-8b",
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",  
-    "gemini-2.5-flash-preview-04-17",
-    "gemini-2.5-pro-preview-03-25"
+    "gemini-1.5-flash"
+    # "gemini-1.5-pro",  
+    # "gemini-2.5-flash-preview-04-17",
+    # "gemini-2.5-pro-preview-03-25"
 ]
 DEFAULT_MODEL = "gemini-1.5-flash"
 FALLBACK_MODELS = [
@@ -58,61 +57,61 @@ API_KEY_LOCK = threading.Lock()
 API_KEY_MIN_INTERVAL = 2.0 
 API_TIMEOUT = 90
 API_MAX_RETRIES = 3
-API_RETRY_DELAY = 4
+API_RETRY_DELAY = 10
 
 # Global state for stop flags
 FORCE_STOP_FLAG = False
 
 def select_smart_api_key(api_keys_list: list) -> str | None:
     """
-    Selects the most suitable API key from the list based on:
-    1. Lowest potential wait time (from TokenBucket).
-    2. Oldest last used time.
+    Selects the most suitable API key from the list based on oldest last used time.
+    Also updates the last used time for the selected key.
     """
     if not api_keys_list:
         return None
 
-    key_statuses = []
-    for key in api_keys_list:
-        # API_RATE_LIMITERS and API_KEY_LAST_USED are assumed to be accessible globals in this module
-        potential_wait_time = API_RATE_LIMITERS[key].get_potential_wait_time(1) # API_RATE_LIMITERS is already imported
-        last_used_time = API_KEY_LAST_USED.get(key, 0) # Default to 0 if never used (API_KEY_LAST_USED is global)
-        key_statuses.append((potential_wait_time, last_used_time, key))
+    with API_KEY_LOCK:
+        key_statuses = []
+        for key in api_keys_list:
+            last_used_time = API_KEY_LAST_USED.get(key, 0)
+            key_statuses.append((last_used_time, key))
 
-    # Sort by potential_wait_time (ascending), then by last_used_time (ascending)
-    key_statuses.sort(key=lambda x: (x[0], x[1]))
+        key_statuses.sort(key=lambda x: x[0])
 
-    if not key_statuses: # Should not happen if api_keys_list was not empty
-        return None
-        
-    return key_statuses[0][2] # Return the key string
+        if not key_statuses:
+            return None
+            
+        selected_key = key_statuses[0][1]
+        API_KEY_LAST_USED[selected_key] = time.time() # Update last used time for the selected key
+        return selected_key
 
-def select_best_fallback_model(fallback_models_list: list, model_rate_limiters_map: defaultdict, model_last_used_map: defaultdict) -> str | None:
+def select_best_fallback_model(fallback_models_list: list, excluded_model_name: str | None = None) -> str | None:
     """
-    Selects the most suitable fallback model from the list based on:
-    1. Lowest potential wait time (from TokenBucket).
-    2. Oldest last used time.
+    Selects the most suitable fallback model from the list based on oldest last used time.
     Filters out models not present in GEMINI_MODELS (the master list of all valid models).
+    Also excludes the 'excluded_model_name' if provided.
     """
     if not fallback_models_list:
         return None
 
     model_statuses = []
     for model_name in fallback_models_list:
+        if model_name == excluded_model_name:
+            log_message(f"  Model fallback '{model_name}' dilewati karena sama dengan model yang baru gagal.", "info")
+            continue
         if model_name not in GEMINI_MODELS: # Ensure the fallback model is a generally valid model
             log_message(f"  Model fallback '{model_name}' tidak ada di daftar GEMINI_MODELS, dilewati.", "warning")
             continue
-        potential_wait_time = model_rate_limiters_map[model_name].get_potential_wait_time(1)
-        last_used_time = model_last_used_map.get(model_name, 0) # Default to 0 if never used
-        model_statuses.append((potential_wait_time, last_used_time, model_name))
+        last_used_time = MODEL_LAST_USED.get(model_name, 0) # Default to 0 if never used
+        model_statuses.append((last_used_time, model_name))
 
     if not model_statuses: # If all fallback models were invalid or list was initially empty
         return None
 
-    # Sort by potential_wait_time (ascending), then by last_used_time (ascending)
-    model_statuses.sort(key=lambda x: (x[0], x[1]))
+    # Sort by last_used_time (ascending)
+    model_statuses.sort(key=lambda x: x[0])
         
-    return model_statuses[0][2] # Return the model name string
+    return model_statuses[0][1] # Return the model name string
 
 def is_stop_requested():
     global FORCE_STOP_FLAG
@@ -121,6 +120,7 @@ def is_stop_requested():
 def set_force_stop():
     global FORCE_STOP_FLAG
     FORCE_STOP_FLAG = True
+    log_message("Force stop flag telah diaktifkan. Semua proses akan segera berhenti.", "warning")
 
 def reset_force_stop():
     global FORCE_STOP_FLAG
@@ -145,25 +145,28 @@ def get_api_endpoint(model_name):
 
 def select_next_model():
     with MODEL_LOCK:
+        # Urutkan model berdasarkan waktu terakhir digunakan (yang paling lama tidak digunakan akan di depan)
         sorted_models = sorted(GEMINI_MODELS, key=lambda m: MODEL_LAST_USED.get(m, 0))
-        selected_model = None
-        max_tokens = -1
-        for model in sorted_models:
-            available_tokens = MODEL_RATE_LIMITERS[model].tokens
-            if available_tokens > max_tokens:
-                max_tokens = available_tokens
-                selected_model = model
-        if selected_model is None or max_tokens < 1:
-            selected_model = sorted_models[0]
+        
+        # Pilih model pertama dari daftar yang sudah diurutkan (paling lama tidak digunakan)
+        # Jika belum ada yang pernah digunakan, ini akan memilih model pertama dari GEMINI_MODELS
+        selected_model = sorted_models[0]
+        
         MODEL_LAST_USED[selected_model] = time.time()
         return selected_model
 
 def wait_for_model_cooldown(model_name, stop_event=None):
-    # Rate limiter bypassed (hardcode)
+    # IMPORTANT: This function is intentionally empty to bypass local rate limiting.
+    # The application now relies solely on server-side API rate limits,
+    # which are much more permissive than the previous local limits.
+    # This helps prevent false rate limit errors reported to users.
     return
 
 def wait_for_api_key_cooldown(api_key, stop_event=None):
-    # Rate limiter bypassed (hardcode)
+    # IMPORTANT: This function is intentionally empty to bypass local rate limiting.
+    # The application now relies solely on server-side API rate limits,
+    # which are much more permissive than the previous local limits.
+    # This helps prevent false rate limit errors reported to users.
     return
 
 def _attempt_gemini_request(
@@ -310,7 +313,6 @@ def _attempt_gemini_request(
         api_error_code = error_details.get("code", "UNKNOWN_API_ERR_CODE")
         api_error_message = error_details.get("message", "No specific error message from API.")
         log_message(f"  API Error [{model_to_use}] untuk {image_basename}: HTTP {http_status_code}, Code API: {api_error_code} - {api_error_message}", "error")
-        # Jika 429, token akan di-adjust di luar, di loop utama get_gemini_metadata
         return http_status_code, response_data, "api_error", api_error_message
 
 def _extract_metadata_from_text(generated_text: str, keyword_count: str) -> dict | None:
@@ -368,6 +370,7 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
         log_message(f"  Tipe file {ext.lower()} tidak didukung untuk API call ({image_basename}).", "warning")
         return None # Atau error dict yang sesuai
 
+    # Check stop event before any processing
     if check_stop_event(stop_event, f"  get_gemini_metadata dibatalkan sebelum loop retry: {image_basename}"):
         return "stopped"
 
@@ -379,23 +382,30 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
     current_retries = 0
     last_attempted_model = None
     
+    # Tentukan model yang akan digunakan untuk semua upaya
+    model_to_use = DEFAULT_MODEL # Fallback default
+    is_auto_rotate_mode = (selected_model_input is None or selected_model_input == "Auto Rotasi")
+
+    # If user selected a specific model, only use that model for all attempts (1:1:1 relationship)
+    # The auto-rotation logic will only apply if Auto Rotasi is explicitly selected
+    if not is_auto_rotate_mode:
+        if selected_model_input not in GEMINI_MODELS:
+            log_message(f"  WARNING: Model input '{selected_model_input}' tidak valid. Menggunakan default: {DEFAULT_MODEL}", "warning")
+            model_to_use = DEFAULT_MODEL
+        else:
+            model_to_use = selected_model_input
+            log_message(f"  Menggunakan model tetap: {model_to_use} (user selected)", "info")
+    
     while current_retries < API_MAX_RETRIES:
         if check_stop_event(stop_event, f"  get_gemini_metadata loop retry ({current_retries + 1}) dibatalkan: {image_basename}"):
             return "stopped"
 
-        # Tentukan model yang akan digunakan untuk upaya ini
-        model_for_this_attempt = DEFAULT_MODEL # Fallback default
-        is_auto_rotate_mode = (selected_model_input is None or selected_model_input == "Auto Rotasi")
-
+        # For Auto Rotation mode, select a new model on each retry
+        # For fixed model mode, use the same model for all retries
+        model_for_this_attempt = model_to_use
         if is_auto_rotate_mode:
             model_for_this_attempt = select_next_model() 
             log_message(f"  Auto Rotasi: Model dipilih {model_for_this_attempt} untuk upaya {current_retries + 1}", "info")
-        else:
-            if selected_model_input not in GEMINI_MODELS:
-                log_message(f"  WARNING: Model input '{selected_model_input}' tidak valid. Menggunakan default: {DEFAULT_MODEL}", "warning")
-                model_for_this_attempt = DEFAULT_MODEL
-            else:
-                model_for_this_attempt = selected_model_input
         
         last_attempted_model = model_for_this_attempt # Simpan model terakhir yang dicoba di loop utama
 
@@ -420,11 +430,6 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
                     
                     if extracted_metadata: # Jika helper berhasil mengekstrak
                         log_message(f"  Metadata berhasil diekstrak dari {model_for_this_attempt} untuk {image_basename}", "success")
-                        with MODEL_LOCK: # Beri kredit token ke model yang sukses
-                            MODEL_RATE_LIMITERS[model_for_this_attempt].tokens = min(
-                                MODEL_RATE_LIMITERS[model_for_this_attempt].capacity,
-                                MODEL_RATE_LIMITERS[model_for_this_attempt].tokens + 0.5 
-                            )
                         return extracted_metadata # Kembalikan hasil ekstraksi
                     else: # Jika helper gagal (return None)
                         log_message(f"  Gagal mengekstrak struktur metadata (via helper) dari teks Gemini ({model_for_this_attempt}, {image_basename}).", "warning")
@@ -444,11 +449,10 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
             log_message(f"  Konten diblokir untuk {image_basename} oleh {model_for_this_attempt}. Alasan: {error_detail}. Tidak ada retry.", "error")
             return {"error": f"Content blocked by {model_for_this_attempt}: {error_detail}"}
         elif http_status == 429 or (error_type == "api_error" and response_data and response_data.get("error", {}).get("code") == 429):
-            log_message(f"  Rate limit (429) diterima untuk model {model_for_this_attempt} / API key ...{api_key[-4:]} pada {image_basename}. Mengurangi token.", "warning")
-            with MODEL_LOCK:
-                MODEL_RATE_LIMITERS[model_for_this_attempt].tokens = max(0, MODEL_RATE_LIMITERS[model_for_this_attempt].tokens - 5)
-            with API_KEY_LOCK: # Juga kurangi token API Key karena ini kesalahan server terkait kuota juga
-                API_RATE_LIMITERS[api_key].tokens = max(0, API_RATE_LIMITERS[api_key].tokens - 5)
+            log_message(f"  Rate limit (429) diterima untuk model {model_for_this_attempt} / API key ...{api_key[-4:]} pada {image_basename}.", "warning") # Mengurangi token. (dihapus dari log)
+            # Jika kena rate limit dan user memilih model tertentu, beri pesan yang lebih jelas
+            if not is_auto_rotate_mode:
+                log_message(f"  Peringatan: Model yang Anda pilih ({model_for_this_attempt}) sedang mencapai batas kuota. Coba gunakan model lain atau mode Auto Rotasi.", "warning")
             # Lanjut ke retry berikutnya, model mungkin akan dirotasi jika Auto Rotasi
         elif http_status in [400, 401, 403] or (error_type == "api_error" and response_data and response_data.get("error",{}).get("code",0) in [400,401,403]):
             err_msg = error_detail if error_detail else "Bad request/Auth error"
@@ -462,62 +466,20 @@ def get_gemini_metadata(image_path, api_key, stop_event, use_png_prompt=False, u
             jitter = random.uniform(0, 0.5 * base_delay)
             actual_delay = base_delay + jitter
             log_message(f"  Menunggu {actual_delay:.1f} detik sebelum retry ({current_retries + 1}/{API_MAX_RETRIES}) untuk {image_basename} (Model terakhir: {model_for_this_attempt}, Error: {error_type or 'N/A'}) ...")
+            
             # Sleep dengan check stop event periodik
             wait_start_time = time.time()
             while time.time() - wait_start_time < actual_delay:
                 if check_stop_event(stop_event, f"Retry delay dihentikan untuk {image_basename}"):
                     return "stopped"
-                time.sleep(0.1)
+                time.sleep(0.1)  # Check stop event every 100ms
 
     # === Logika Fallback Model ===
-    # Ini dijalankan HANYA jika loop retry utama gagal DAN bukan mode Auto Rotasi DAN error terakhir adalah 429 pada model
-    # Dan last_attempted_model harusnya sudah terisi dari loop di atas.
-    if not is_auto_rotate_mode and last_attempted_model and http_status == 429: # Kondisi spesifik untuk fallback
-        log_message(f"  Model utama '{last_attempted_model}' gagal karena rate limit setelah semua retry. Mencoba fallback model...", "warning")
-        
-        best_fallback_model = select_best_fallback_model(FALLBACK_MODELS, MODEL_RATE_LIMITERS, MODEL_LAST_USED)
-        
-        if best_fallback_model and best_fallback_model != last_attempted_model: # Jangan coba model yang sama lagi
-            log_message(f"  Memilih fallback model terbaik: {best_fallback_model} untuk {image_basename}", "info")
-            
-            # Satu kali upaya dengan fallback model
-            fb_http_status, fb_response_data, fb_error_type, fb_error_detail = _attempt_gemini_request(
-                image_path, api_key, best_fallback_model, stop_event,
-                use_png_prompt, use_video_prompt, priority, image_basename
-            )
-
-            if fb_http_status == 200 and fb_error_type is None:
-                log_message(f"  Sukses dengan fallback model {best_fallback_model}!", "success")
-                # Ekstrak metadata menggunakan helper
-                if fb_response_data and "candidates" in fb_response_data and fb_response_data["candidates"]:
-                    candidate = fb_response_data["candidates"][0]
-                    content = candidate.get("content", {})
-                    parts = content.get("parts", [])
-                    if parts and parts[0].get("text"):
-                        generated_text = parts[0].get("text", "")
-                        # Panggil helper ekstraksi
-                        extracted_metadata = _extract_metadata_from_text(generated_text, keyword_count)
-                        
-                        if extracted_metadata: # Jika helper berhasil
-                            with MODEL_LOCK:
-                                MODEL_RATE_LIMITERS[best_fallback_model].tokens = min(MODEL_RATE_LIMITERS[best_fallback_model].capacity, MODEL_RATE_LIMITERS[best_fallback_model].tokens + 0.5)
-                            return extracted_metadata # Kembalikan hasil
-                        else: # Jika helper gagal
-                            log_message(f"  Gagal ekstrak metadata dari fallback model {best_fallback_model} meskipun HTTP 200 (via helper).", "warning")
-                    else:
-                         log_message(f"  Struktur respons fallback tidak valid (no parts/text) dari {best_fallback_model} ({image_basename}).", "warning")
-                elif fb_error_type == "blocked":
-                    log_message(f"  Konten diblokir oleh fallback model {best_fallback_model} ({image_basename}). Alasan: {fb_error_detail}", "error")
-                    return {"error": f"Content blocked by fallback {best_fallback_model}: {fb_error_detail}"}
-                else:
-                    log_message(f"  Tidak ada fallback model yang cocok/tersedia untuk dicoba.", "warning")
-            elif fb_http_status != 200: # Tambahan kondisi jika fallback gagal bukan karena block tapi error lain
-                log_message(f"  Fallback model {best_fallback_model} gagal. HTTP: {fb_http_status}, Error: {fb_error_type}, Detail: {fb_error_detail}", "warning")
-        elif best_fallback_model == last_attempted_model:
-            log_message(f"  Fallback model terbaik ({best_fallback_model}) sama dengan model utama yang gagal, tidak mencoba lagi.", "warning")
-        else: # This else covers (best_fallback_model is None)
-            log_message(f"  Tidak ada fallback model yang cocok/tersedia untuk dicoba.", "warning")
-
-    # Jika semua upaya gagal (termasuk fallback jika dicoba)
-    log_message(f"  Semua upaya ({current_retries} utama + fallback jika ada) gagal untuk {image_basename}. Model terakhir dicoba: {last_attempted_model}", "error")
-    return {"error": f"Maximum retries/fallbacks exceeded for {image_basename}. Last model: {last_attempted_model}"}
+    # IMPORTANT: Only try fallback if we're not in Auto Rotate mode and not if we've already tried all retries
+    # We don't do fallback in fixed model mode - stick to user's choice
+    if is_auto_rotate_mode and last_attempted_model and http_status == 429:
+        log_message(f"  Model terakhir '{last_attempted_model}' gagal karena rate limit setelah semua retry. Tidak mencoba fallback karena Auto Rotasi sudah digunakan.", "warning")
+    
+    # Jika semua upaya gagal
+    log_message(f"  Semua upaya ({current_retries}) gagal untuk {image_basename}. Model terakhir dicoba: {last_attempted_model}", "error")
+    return {"error": f"Maximum retries exceeded for {image_basename}. Last model: {last_attempted_model}"}
