@@ -48,7 +48,7 @@ def main():
         traceback.print_exc()
         
         try:
-            tk.messagebox.showerror("Fatal Error", 
+            tk.messagebox.showerror("Fatal Error",  # type: ignore
                 f"Terjadi error fatal:\n{e}\nAplikasi akan ditutup.")
         except:
             pass

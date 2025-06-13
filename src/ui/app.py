@@ -51,7 +51,7 @@ from src.metadata.exif_writer import check_exiftool_exists # Keep this import fo
 from src.api.api_key_checker import check_api_keys_status
 
 # Konstanta aplikasi
-APP_VERSION = "3.4.0" # Updated version
+APP_VERSION = "3.5.0" # Updated version
 CONFIG_FILE = "config.json"
 
 class MetadataApp(ctk.CTk):
@@ -108,16 +108,16 @@ class MetadataApp(ctk.CTk):
         # Setup UI dasar
         self.title("Auto Metadata")
 
-        # --- Debug Execution Mode ---
-        log_message(f"--- Debug Info ---", "info")
-        log_message(f"sys.frozen: {getattr(sys, 'frozen', 'Not Set')}", "info")
-        log_message(f"sys.executable: {sys.executable}", "info")
-        try:
-            log_message(f"__file__ (app.py): {__file__}", "info")
-        except NameError:
-            log_message(f"__file__ (app.py): Not Defined", "info")
-        log_message(f"os.getcwd(): {os.getcwd()}", "info")
-        # --- End Debug Info ---
+        # # --- Debug Execution Mode ---
+        # log_message(f"--- Debug Info ---", "info")
+        # log_message(f"sys.frozen: {getattr(sys, 'frozen', 'Not Set')}", "info")
+        # log_message(f"sys.executable: {sys.executable}", "info")
+        # try:
+        #     log_message(f"__file__ (app.py): {__file__}", "info")
+        # except NameError:
+        #     log_message(f"__file__ (app.py): Not Defined", "info")
+        # log_message(f"os.getcwd(): {os.getcwd()}", "info")
+        # # --- End Debug Info ---
 
         # Determine base directory using the centralized function
         # Import _get_base_dir from system_checks
@@ -127,15 +127,15 @@ class MetadataApp(ctk.CTk):
         # Load icon aplikasi using the determined base_dir
         try:
             self.iconbitmap_path = os.path.join(base_dir, 'assets', 'icon1.ico')
-            log_message(f"Attempting to load icon from: {self.iconbitmap_path}", "info") # Log path being tried
+            # log_message(f"Attempting to load icon from: {self.iconbitmap_path}", "info") # Log path being tried
             if os.path.exists(self.iconbitmap_path):
                 self.iconbitmap(self.iconbitmap_path)
-                log_message(f"Icon aplikasi dimuat dari: {self.iconbitmap_path}", "info") # Add log
+                # log_message(f"Icon aplikasi dimuat dari: {self.iconbitmap_path}", "info") # Add log
             else:
-                log_message(f"Warning: File icon tidak ditemukan di path relatif: {self.iconbitmap_path}", "warning") # Use log
+                # log_message(f"Warning: File icon tidak ditemukan di path relatif: {self.iconbitmap_path}", "warning") # Use log
                 self.iconbitmap_path = None
         except Exception as e:
-            log_message(f"Error saat mengatur icon aplikasi: {e}", "error") # Use log
+            # log_message(f"Error saat mengatur icon aplikasi: {e}", "error") # Use log
             self.iconbitmap_path = None
 
         # Setup ukuran window

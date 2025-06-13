@@ -254,7 +254,54 @@ Your usage is evaluated against each limit independently. If you exceed any one 
 
 *Processing vectors/videos WILL FAIL without the required external tools!*
 
-## 10. Troubleshooting Common Issues
+## 10. Multi-Platform CSV Export
+
+RJ Auto Metadata automatically generates CSV files optimized for **5 major stock photography platforms**, making it easy to upload your processed media with proper metadata formatting:
+
+### 10.1. Supported Platforms
+
+*   **Adobe Stock** (`adobe_stock_export.csv`)
+    *   Format: Filename, Title, Keywords, Category, Releases
+    *   Features: Automatic period addition to titles, colon and hyphen preservation
+    *   Category mapping: Numeric IDs (1-21) based on content analysis
+
+*   **Shutterstock** (`shutterstock_export.csv`)
+    *   Format: Filename, Description, Keywords, Categories, Editorial, Mature content, Illustration
+    *   Features: Automatic "illustration" flag for vector files (EPS, AI, SVG)
+    *   Category mapping: Text-based categories (e.g., "Abstract", "Animals/Wildlife")
+
+*   **123RF** (`123rf_export.csv`)
+    *   Format: oldfilename, "123rf_filename", "description", "keywords", "country"
+    *   Features: Custom header quoting, country field set to "ID"
+    *   Special formatting: Specific quote placement for platform compatibility
+
+*   **Vecteezy** (`vecteezy_export.csv`)
+    *   Format: Filename, Title, Description, Keywords, License, Id
+    *   Features: Filename without quotes, automatic "vector" keyword filtering
+    *   Sanitization: Colon-to-hyphen replacement, special character removal
+    *   License: Automatically set to "pro"
+
+*   **Depositphotos** (`depositphotos_export.csv`)
+    *   Format: Filename, Title, Description, Keywords, Category, Nudity, Editorial
+    *   Features: Standard formatting with platform-specific fields
+    *   Default values: Nudity and Editorial set to "no"
+
+### 10.2. Platform-Specific Features
+
+**Smart Sanitization:** Each platform has custom data cleaning rules:
+*   **Adobe Stock:** Preserves colons and hyphens in titles/keywords
+*   **Vecteezy:** Removes "vector" words from keywords, replaces colons with hyphens
+*   **Others:** Minimal sanitization for maximum compatibility
+
+**Automatic Categorization:** When "Auto Kategori?" is enabled, the AI analyzes content and assigns appropriate categories for Adobe Stock and Shutterstock.
+
+**Vector Detection:** Automatically detects vector files and applies appropriate flags (e.g., Shutterstock's "illustration" field).
+
+### 10.3. CSV Output Location
+
+All CSV files are generated in your specified **Output Folder** and updated in real-time as files are processed. Each platform gets its own dedicated CSV file for easy bulk uploading.
+
+## 11. Troubleshooting Common Issues
 
 *   **"Exiftool not found" / Errors on `.ai`/`.eps` / Errors on `.mp4`/`.mkv`:**
     *   **Using Installer:** These tools should be bundled. Ensure the installation completed without errors and the `tools/` subfolder exists with content. Check the application log for specific errors during execution.
@@ -267,7 +314,7 @@ Your usage is evaluated against each limit independently. If you exceed any one 
 *   **Permission Errors:** Cannot write to Output Folder or config location? Choose different folder, check permissions.
 *   **Freezes/Crashes:** Review the GUI log carefully for any error messages. Since the terminal output is suppressed, the GUI log is the primary source of information. Ensure all dependencies (Python and external) are correctly installed. If the log provides no clues, consider system resource issues or try reducing the number of `Workers`.
 
-## 11. Project Structure Deep Dive
+## 12. Project Structure Deep Dive
 
 *   `main.py`: Entry point.
 *   `src/`: Core logic.
@@ -282,7 +329,7 @@ Your usage is evaluated against each limit independently. If you exceed any one 
 *   `licenses/`: Dependency licenses.
 *   `sample_files/`: Test files.
 
-## 12. License Information
+## 13. License Information
 
 Licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See `LICENSE` file.
 
@@ -292,15 +339,15 @@ Licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See `L
 
 Dependencies have their own licenses (MIT, Apache, LGPL, etc.). See `licenses/` folder. Comply with all, especially for external tools (ExifTool, Ghostscript, FFmpeg, GTK3).
 
-## 13. Contributing
+## 14. Contributing
 
 This is currently a solo project and my first one! As such, I'm focusing on learning and building. While I'm not set up for formal contributions right now, I'm always open to hearing feedback or suggestions. You can reach out via the contact details below (if provided).
 
-## 14. Contact & Support
+## 15. Contact & Support
 
 You can find me and discuss this project (or others) at: https://s.id/rj_auto_metadata
 
-## 15. Support the Project
+## 16. Support the Project
 
 If you find this application helpful and would like to support its continued development, you can do so via the QR code below. Thanks!
 

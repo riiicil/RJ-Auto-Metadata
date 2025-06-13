@@ -16,6 +16,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 -
 
+## [3.5.0] - 2025-06-13
+
+### Added
+- **Multi-Platform CSV Export:** Added support for 3 additional stock photography platforms:
+  - **123RF:** Custom CSV format with specific header quoting requirements
+  - **Vecteezy:** Specialized format without filename quotes, vector keyword filtering
+  - **Depositphotos:** Standard format with platform-specific fields
+- **Platform-Specific Metadata Sanitization:** Implemented custom sanitization rules per platform:
+  - **Adobe Stock:** Automatic period addition to titles, colon and hyphen preservation in titles/keywords
+  - **Vecteezy:** Colon-to-hyphen replacement in titles, complete special character removal from keywords, automatic "vector" word filtering
+  - **Other Platforms:** Maintain existing minimal sanitization for compatibility
+
+### Changed
+- **Enhanced Video Processing:** Video analysis now processes and sends 3 frames to the API instead of 1, providing more comprehensive content analysis and improved metadata accuracy
+- **Improved Video Prompts:** Updated video processing prompts to handle multi-frame analysis, resulting in better title, description, and keyword generation for video content
+- **Log Output Optimization:** Reduced unnecessary log messages to provide cleaner, more focused output during processing
+
+### Technical Details
+- **CSV Export Architecture:** Extended `csv_exporter.py` with specialized functions for each platform's unique requirements
+- **Sanitization Functions:** Added `sanitize_adobe_stock_title()`, `sanitize_adobe_stock_keywords()`, `sanitize_vecteezy_title()`, and `sanitize_vecteezy_keywords()` for platform-specific data cleaning
+- **Video Frame Processing:** Modified video processing pipeline to extract and analyze multiple frames for enhanced content understanding
+
 ## [3.4.0] - 2025-05-25
 
 ### Fixed

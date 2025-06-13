@@ -22,9 +22,181 @@ from src.utils.file_utils import sanitize_csv_field, write_to_csv
 from src.metadata.categories.for_adobestock import map_to_adobe_stock_category
 from src.metadata.categories.for_shutterstock import map_to_shutterstock_category
 
+def sanitize_adobe_stock_title(title):
+    """
+    Sanitize title untuk Adobe Stock:
+    - Tambah titik di akhir
+    - Colon (:) boleh tetap
+    - Sanitize karakter selain hyphen (-) dan colon (:)
+    """
+    if not title:
+        return ""
+    
+    # Basic cleanup
+    sanitized = re.sub(r'[\r\n\t]+', ' ', str(title))
+    sanitized = re.sub(r'\s+', ' ', sanitized).strip()
+    
+    # Remove special characters except hyphen and colon
+    sanitized = re.sub(r'[^\w\s\-:]', '', sanitized)
+    
+    # Add period at the end if not already there
+    if sanitized and not sanitized.endswith('.'):
+        sanitized += '.'
+    
+    return sanitized
+
+def sanitize_adobe_stock_keywords(keywords):
+    """
+    Sanitize keywords untuk Adobe Stock:
+    - Hyphen (-) boleh tetap
+    - Sanitize karakter selain hyphen
+    """
+    if isinstance(keywords, list):
+        sanitized_list = []
+        for keyword in keywords:
+            if keyword:
+                # Basic cleanup
+                clean_kw = re.sub(r'[\r\n\t]+', ' ', str(keyword))
+                clean_kw = re.sub(r'\s+', ' ', clean_kw).strip()
+                # Remove special characters except hyphen
+                clean_kw = re.sub(r'[^\w\s\-]', '', clean_kw)
+                if clean_kw:
+                    sanitized_list.append(clean_kw)
+        return ', '.join(sanitized_list)
+    else:
+        # String keywords
+        clean_kw = re.sub(r'[\r\n\t]+', ' ', str(keywords))
+        clean_kw = re.sub(r'\s+', ' ', clean_kw).strip()
+        clean_kw = re.sub(r'[^\w\s\-,]', '', clean_kw)
+        return clean_kw
+
+def sanitize_vecteezy_title(title):
+    """
+    Sanitize title untuk Vecteezy:
+    - Tambah titik di akhir
+    - Colon (:) ganti jadi hyphen (-)
+    - Sanitize karakter selain hyphen (-)
+    """
+    if not title:
+        return ""
+    
+    # Basic cleanup
+    sanitized = re.sub(r'[\r\n\t]+', ' ', str(title))
+    sanitized = re.sub(r'\s+', ' ', sanitized).strip()
+    
+    # Replace colon with hyphen
+    sanitized = sanitized.replace(':', ' -')
+    
+    # Remove special characters except hyphen
+    sanitized = re.sub(r'[^\w\s\-]', '', sanitized)
+    
+    # Add period at the end if not already there
+    if sanitized and not sanitized.endswith('.'):
+        sanitized += '.'
+    
+    return sanitized
+
+def sanitize_vecteezy_keywords(keywords):
+    """
+    Sanitize keywords untuk Vecteezy:
+    - Sanitize SEMUA karakter khusus
+    - Hapus kata "vector"
+    """
+    if isinstance(keywords, list):
+        sanitized_list = []
+        for keyword in keywords:
+            if keyword:
+                # Basic cleanup
+                clean_kw = re.sub(r'[\r\n\t]+', ' ', str(keyword))
+                clean_kw = re.sub(r'\s+', ' ', clean_kw).strip().lower()
+                # Remove ALL special characters
+                clean_kw = re.sub(r'[^\w\s]', '', clean_kw)
+                # Remove "vector" word (including compound words)
+                clean_kw = re.sub(r'\bvector\b', '', clean_kw, flags=re.IGNORECASE)
+                clean_kw = re.sub(r'vector', '', clean_kw, flags=re.IGNORECASE)  # Remove vector from compound words
+                clean_kw = re.sub(r'\s+', ' ', clean_kw).strip()
+                if clean_kw:
+                    sanitized_list.append(clean_kw)
+        return ', '.join(sanitized_list)
+    else:
+        # String keywords
+        clean_kw = re.sub(r'[\r\n\t]+', ' ', str(keywords))
+        clean_kw = re.sub(r'\s+', ' ', clean_kw).strip()
+        # Remove ALL special characters
+        clean_kw = re.sub(r'[^\w\s,]', '', clean_kw)
+        # Remove "vector" word (including compound words)
+        clean_kw = re.sub(r'\bvector\b', '', clean_kw, flags=re.IGNORECASE)
+        clean_kw = re.sub(r'vector', '', clean_kw, flags=re.IGNORECASE)  # Remove vector from compound words
+        clean_kw = re.sub(r'\s+', ' ', clean_kw).strip()
+        return clean_kw
+
+def write_123rf_csv(csv_path, filename, description, keywords):
+    """
+    Menulis CSV khusus untuk 123RF dengan format header yang tepat.
+    Header: oldfilename,"123rf_filename","description","keywords","country"
+    """
+    csv_dir = os.path.dirname(csv_path)
+    if not os.path.exists(csv_dir):
+        try:
+            os.makedirs(csv_dir)
+        except Exception as e:
+            log_message(f"Error: Gagal membuat direktori CSV untuk 123RF: {e}")
+            return False
+    
+    file_exists = os.path.isfile(csv_path)
+    try:
+        with open(csv_path, 'a', newline='', encoding='utf-8') as csvfile:
+            if not file_exists or os.path.getsize(csv_path) == 0:
+                # Header khusus dengan format yang diinginkan
+                csvfile.write('oldfilename,"123rf_filename","description","keywords","country"\n')
+            
+            # Data row - escape quotes dalam data jika ada
+            safe_filename = filename.replace('"', '""')
+            safe_description = description.replace('"', '""')
+            safe_keywords = keywords.replace('"', '""')
+            
+            csvfile.write(f'{safe_filename},"","{safe_description}","{safe_keywords}","ID"\n')
+        return True
+    except Exception as e:
+        log_message(f"Error menulis ke CSV 123RF: {e}")
+        return False
+
+def write_vecteezy_csv(csv_path, filename, title, description, keywords):
+    """
+    Menulis CSV khusus untuk Vecteezy dengan filename tanpa quotes.
+    Format: filename,title,"description","keywords",pro,
+    """
+    csv_dir = os.path.dirname(csv_path)
+    if not os.path.exists(csv_dir):
+        try:
+            os.makedirs(csv_dir)
+        except Exception as e:
+            log_message(f"Error: Gagal membuat direktori CSV untuk Vecteezy: {e}")
+            return False
+    
+    file_exists = os.path.isfile(csv_path)
+    try:
+        with open(csv_path, 'a', newline='', encoding='utf-8') as csvfile:
+            if not file_exists or os.path.getsize(csv_path) == 0:
+                # Header standard
+                csvfile.write('Filename,Title,Description,Keywords,License,Id\n')
+            
+            # Data row - filename tanpa quotes, lainnya dengan quotes jika perlu
+            safe_filename = filename.replace('"', '""')
+            safe_title = title.replace('"', '""')
+            safe_description = description.replace('"', '""')
+            safe_keywords = keywords.replace('"', '""')
+            
+            csvfile.write(f'{safe_filename},{safe_title},"{safe_description}","{safe_keywords}",pro,\n')
+        return True
+    except Exception as e:
+        log_message(f"Error menulis ke CSV Vecteezy: {e}")
+        return False
+
 def write_to_platform_csvs(csv_dir, filename, title, description, keywords, auto_kategori_enabled=True, is_vector=False, max_keywords=49):
     """
-    Menulis metadata ke file CSV untuk AdobeStock dan ShutterStock.
+    Menulis metadata ke file CSV untuk semua platform yang didukung.
+    Platform yang didukung: AdobeStock, ShutterStock, 123RF, Vecteezy, Depositphotos
     
     Args:
         csv_dir: Direktori untuk menyimpan file CSV
@@ -98,10 +270,13 @@ def write_to_platform_csvs(csv_dir, filename, title, description, keywords, auto
             ss_category = ""
             log_message(f"  Auto Kategori: Tidak Aktif")
         
-        # Tulis data ke CSV AdobeStock
+        # Tulis data ke CSV AdobeStock (dengan sanitization khusus)
         as_csv_path = os.path.join(csv_dir, "adobe_stock_export.csv")
         as_header = ["Filename", "Title", "Keywords", "Category", "Releases"]
-        as_data_row = [safe_filename, safe_title, as_keywords, as_category, ""]
+        # Apply Adobe Stock specific sanitization
+        as_title_clean = sanitize_adobe_stock_title(safe_title)
+        as_keywords_clean = sanitize_adobe_stock_keywords(keywords if isinstance(keywords, list) else as_keywords)
+        as_data_row = [safe_filename, as_title_clean, as_keywords_clean, as_category, ""]
         import time
         time.sleep(0.5)  # Jeda kecil untuk menghindari konflik file
         as_success = write_to_csv(as_csv_path, as_header, as_data_row)
@@ -115,7 +290,41 @@ def write_to_platform_csvs(csv_dir, filename, title, description, keywords, auto
         time.sleep(0.5)  # Jeda kecil untuk menghindari konflik file
         ss_success = write_to_csv(ss_csv_path, ss_header, ss_data_row)
         
-        return as_success and ss_success
+        # Tulis data ke CSV 123RF (dengan format header khusus)
+        rf_csv_path = os.path.join(csv_dir, "123rf_export.csv")
+        rf_success = write_123rf_csv(rf_csv_path, safe_filename, safe_description or safe_title, as_keywords)
+        time.sleep(0.5)  # Jeda kecil untuk menghindari konflik file
+        
+        # Tulis data ke CSV Vecteezy (dengan format khusus tanpa quotes di filename)
+        vz_csv_path = os.path.join(csv_dir, "vecteezy_export.csv")
+        # Apply Vecteezy specific sanitization
+        vz_title_clean = sanitize_vecteezy_title(safe_title)
+        vz_keywords_clean = sanitize_vecteezy_keywords(keywords if isinstance(keywords, list) else as_keywords)
+        vz_success = write_vecteezy_csv(vz_csv_path, safe_filename, vz_title_clean, safe_description or safe_title, vz_keywords_clean)
+        time.sleep(0.5)  # Jeda kecil untuk menghindari konflik file
+        
+        # Tulis data ke CSV Depositphotos
+        dp_csv_path = os.path.join(csv_dir, "depositphotos_export.csv")
+        dp_header = ["Filename", "description", "Keywords", "Nudity", "Editorial"]
+        dp_data_row = [safe_filename, safe_description or safe_title, as_keywords, "no", "no"]
+        time.sleep(0.5)  # Jeda kecil untuk menghindari konflik file
+        dp_success = write_to_csv(dp_csv_path, dp_header, dp_data_row)
+        
+        # Return True jika semua platform berhasil
+        all_success = as_success and ss_success and rf_success and vz_success and dp_success
+        
+        # Log status untuk platform baru
+        if rf_success and vz_success and dp_success:
+            log_message(f"  CSV Export: Berhasil untuk semua 5 platform (AS, SS, 123RF, Vecteezy, Depositphotos)")
+        else:
+            failed_platforms = []
+            if not rf_success: failed_platforms.append("123RF")
+            if not vz_success: failed_platforms.append("Vecteezy") 
+            if not dp_success: failed_platforms.append("Depositphotos")
+            if failed_platforms:
+                log_message(f"  CSV Export: Gagal untuk platform: {', '.join(failed_platforms)}")
+        
+        return all_success
     except Exception as e:
         log_message(f"  Error menulis ke CSV platform: {e}")
         return False

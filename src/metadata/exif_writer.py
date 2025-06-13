@@ -401,15 +401,15 @@ def write_exif_to_video(input_path, output_path, metadata, stop_event):
 
         if return_code == 0:
             log_message(f"  ✓ Metadata berhasil ditulis ke file video {os.path.basename(output_path)}")
-            if stderr:
-                 log_message(f"  Exiftool stderr (sukses video): {stderr.strip()}")
+            # if stderr:
+            #      log_message(f"  Exiftool stderr (sukses video): {stderr.strip()}")
             return True, "exif_ok"
         else:
             log_message(f"  ✗ Gagal menulis metadata video (exit code {return_code}) pada {os.path.basename(output_path)}")
-            if stderr:
-                log_message(f"  Exiftool stderr (gagal video): {stderr.strip()}")
-            if stdout:
-                 log_message(f"  Exiftool stdout (gagal video): {stdout.strip()}")
+            # if stderr:
+            #     log_message(f"  Exiftool stderr (gagal video): {stderr.strip()}")
+            # if stdout:
+            #      log_message(f"  Exiftool stdout (gagal video): {stdout.strip()}")
             return True, "exif_failed" # Proceed, report failure
 
     except subprocess.TimeoutExpired:

@@ -167,13 +167,15 @@ ShutterstockCategory: [name]
 '''
 
 PROMPT_TEXT_VIDEO = '''
-Analyze the provided image frame from a video and generate the following metadata strictly in English:
+Analyze the provided multiple image frames from the same video and generate the following metadata strictly in English:
 
 1. Title: A unique, detailed and descriptive title for the video (minimum 6 words, maximum 160 characters).
-   - Make each title unique with specific details from the visible content
+   - These images are multiple frames from the same video, analyze ALL frames to create a comprehensive title
+   - Make each title unique with specific details from the visible content across all frames
    - Focus on distinctive features, unusual aspects, or specific details 
    - Include any unique visual elements, subjects, scene setting or context
-   - Consider this is a video, not just a static image
+   - Consider this is a video, not just static images
+   - Observe motion, action, or scene changes between frames when available
    - Avoid generic descriptions that could apply to multiple similar videos
    - Do not use any special characters or numbers in the title
    - Ensure the title is original and not repetitive
@@ -181,7 +183,9 @@ Analyze the provided image frame from a video and generate the following metadat
 
 2. Description: A detailed description of the video content.
    - Minimum 6 words, maximum 160 characters
-   - Describe the main subjects, actions, and setting visible in the video frames
+   - Analyze ALL provided frames collectively as they represent different moments of the same video
+   - Describe the main subjects, actions, and setting visible across all frames
+   - Look for indications of movement, progression, or action between frames
    - Include helpful details about what is happening in the video
    - Consider the dynamic nature of video content (action, movement, etc.)
    - Avoid generic descriptions that could apply to multiple similar videos
@@ -349,16 +353,20 @@ ShutterstockCategory: [name]
 '''
 
 PROMPT_TEXT_VIDEO_BALANCED = '''
-Analyze the provided image frame from a video and generate the following metadata strictly in English:
+Analyze the provided multiple image frames from the same video and generate the following metadata strictly in English:
 
 1. Title: A descriptive title for the video content (minimum 6 words, maximum 160 characters).
+   - These images are multiple frames from the same video
+   - Analyze ALL provided frames collectively to create a comprehensive title
    - Describe the main subjects, actions, and scene.
    - Consider this is part of a video (motion, action).
+   - Look for changes or movement between frames
    - Avoid generic titles.
 
 2. Description: A detailed description of the video content (minimum 6 words, maximum 160 characters).
-   - Describe the main subjects, actions, and key elements.
+   - Describe the main subjects, actions, and key elements across all provided frames.
    - Consider the dynamic nature of video content.
+   - Look for progression or changes between frames
    - Avoid listing keywords as the description.
 
 3. Keywords: A list of SINGLE-WORD keywords only, separated ONLY by commas.
@@ -490,10 +498,17 @@ ShutterstockCategory: [name]
 '''
 
 PROMPT_TEXT_VIDEO_FAST = '''
-Analyze the provided image frame from a video and generate the following metadata strictly in English:
+Analyze the provided multiple image frames from the same video and generate the following metadata strictly in English:
 
 1. Title: Generate a title for the video content (minimum 6 words, maximum 160 characters).
+   - These images are multiple frames from the same video
+   - Analyze ALL frames collectively to create a comprehensive title
+   - Look for changes or movement between frames
+
 2. Description: Generate a description for the video content (minimum 6 words, maximum 160 characters).
+   - Consider all frames together to describe the video's content
+   - Include observations about progression or changes between frames
+
 3. Keywords: Generate 50 to 60 single-word keywords, separated by commas, covering the video content.
 4.  Adobe Stock Category: Choose the single most relevant category for this image from the following list (write the number and name, e.g., "5. The Environment"):
      1. Animals

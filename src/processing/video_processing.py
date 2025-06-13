@@ -237,7 +237,7 @@ def process_video(input_path, output_dir, selected_api_key: str, stop_event, aut
              best_frame = frames_for_api[0]
         log_message(f"  Menggunakan {os.path.basename(best_frame)} sebagai frame utama untuk API")
 
-    if not best_frame or not os.path.exists(best_frame):
+    if not frames_for_api or len(frames_for_api) == 0:
         log_message(f"  Error: Tidak ada frame yang tersedia untuk diproses API: {filename}")
         # Clean up remaining frames
         for frame in extracted_frames + compressed_frames_to_clean:
@@ -247,7 +247,9 @@ def process_video(input_path, output_dir, selected_api_key: str, stop_event, aut
         return "failed_frames", None, None
 
     # Dapatkan metadata dari API Gemini, gunakan prompt khusus video
-    metadata_result = get_gemini_metadata(best_frame, selected_api_key, stop_event, use_video_prompt=True, selected_model_input=selected_model, keyword_count=keyword_count, priority=priority)
+    # Kirim semua frame ke API dalam satu request
+    log_message(f"  Mengirim {len(frames_for_api)} frame ke API Gemini untuk analisis video...")
+    metadata_result = get_gemini_metadata(frames_for_api, selected_api_key, stop_event, use_video_prompt=True, selected_model_input=selected_model, keyword_count=keyword_count, priority=priority)
 
     # Bersihkan SEMUA frame (original yang tidak terkompres + hasil kompresi) setelah API call
     # extracted_frames might contain originals if compression failed or wasn't needed
