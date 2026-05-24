@@ -35,6 +35,7 @@ def process_png(
     embedding_enabled=True,
     keyword_count="49",
     priority="Details",
+    base_url_override=None,
 ):
     filename = os.path.basename(input_path)
     initial_output_path = os.path.join(output_dir, filename)
@@ -86,6 +87,7 @@ def process_png(
         keyword_count=keyword_count,
         priority=priority,
         is_vector_conversion=False,
+        base_url_override=base_url_override,
     )
     
     for temp_file in temp_files_created:

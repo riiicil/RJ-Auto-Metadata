@@ -124,6 +124,7 @@ def process_video(
     embedding_enabled=True,
     keyword_count="49",
     priority="Details",
+    base_url_override=None,
 ):
     filename = os.path.basename(input_path)
     _, ext = os.path.splitext(filename)
@@ -222,6 +223,7 @@ def process_video(
         keyword_count=keyword_count,
         priority=priority,
         is_vector_conversion=False,
+        base_url_override=base_url_override,
     )
 
     all_frames_to_clean = list(set(extracted_frames + compressed_frames_to_clean))

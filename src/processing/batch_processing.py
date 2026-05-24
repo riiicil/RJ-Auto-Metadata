@@ -72,6 +72,7 @@ def process_vector_file(
     embedding_enabled=True,
     keyword_count="49",
     priority="Details",
+    base_url_override=None,
 ):
     filename = os.path.basename(input_path)
     _, ext = os.path.splitext(filename)
@@ -160,6 +161,7 @@ def process_vector_file(
         keyword_count=keyword_count,
         priority=priority,
         is_vector_conversion=True,
+        base_url_override=base_url_override,
     )
     
     if temp_raster_path and os.path.exists(temp_raster_path):
@@ -233,6 +235,7 @@ def process_image(
     embedding_enabled=True,
     keyword_count="49",
     priority="Details",
+    base_url_override=None,
 ):
     filename = os.path.basename(input_path)
     _, ext = os.path.splitext(filename)
@@ -260,6 +263,7 @@ def process_image(
             embedding_enabled=embedding_enabled,
             keyword_count=keyword_count,
             priority=priority,
+            base_url_override=base_url_override,
         )
     elif ext_lower in ['.eps', '.ai', '.svg']:
         return process_vector_file(
@@ -274,6 +278,7 @@ def process_image(
             embedding_enabled=embedding_enabled,
             keyword_count=keyword_count,
             priority=priority,
+            base_url_override=base_url_override,
         )
     elif ext_lower in ['.jpg', '.jpeg']:
         from src.processing.image_processing.format_jpg_jpeg_processing import process_jpg_jpeg
@@ -288,6 +293,7 @@ def process_image(
             embedding_enabled=embedding_enabled,
             keyword_count=keyword_count,
             priority=priority,
+            base_url_override=base_url_override,
         )
     else:
         log_message(f"Format file tidak didukung: {ext_lower}")
@@ -308,6 +314,7 @@ def process_single_file(
     priority="Details",
     stop_event=None,
     prompt_config=None,
+    base_url_override=None,
 ):
     if prompt_config is None:
         prompt_config = {}
@@ -395,6 +402,7 @@ def process_single_file(
                 embedding_enabled,
                 keyword_count,
                 priority,
+                base_url_override,
             )
         elif ext_lower in ['.eps', '.ai', '.svg']:
             status, processed_metadata, initial_output_path = process_vector_file(
@@ -409,6 +417,7 @@ def process_single_file(
                 embedding_enabled,
                 keyword_count,
                 priority,
+                base_url_override,
             )
         elif ext_lower in ['.jpg', '.jpeg']:
             from src.processing.image_processing.format_jpg_jpeg_processing import process_jpg_jpeg
@@ -423,6 +432,7 @@ def process_single_file(
                 embedding_enabled,
                 keyword_count,
                 priority,
+                base_url_override,
             )
         elif ext_lower == '.png':
             from src.processing.image_processing.format_png_processing import process_png
@@ -437,6 +447,7 @@ def process_single_file(
                 embedding_enabled,
                 keyword_count,
                 priority,
+                base_url_override,
             )
         else:
             log_message(f"Unsupported file format for API: {ext_lower}")
@@ -578,6 +589,7 @@ def batch_process_files(
     priority="Details",
     bypass_api_key_limit=False,
     prompt_config=None,
+    base_url_override=None,
 ):
     if prompt_config is None:
         prompt_config = {}
@@ -749,6 +761,7 @@ def batch_process_files(
                             priority,
                             stop_event,
                             prompt_config,
+                            base_url_override,
                         )
                         batch_futures.append(future)
                         futures.append(future)
@@ -951,6 +964,7 @@ def batch_process_files(
                                     priority,
                                     stop_event,
                                     prompt_config,
+                                    base_url_override,
                                 )
                                 batch_retry_futures.append((future, input_path))
                                 retry_processed_files.add(input_path)

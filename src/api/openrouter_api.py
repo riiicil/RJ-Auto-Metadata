@@ -33,6 +33,7 @@ from src.utils.json_utils import _clean_json_text
 from src.utils.stop_flag import is_stop_requested
 
 API_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+_DEFAULT_CHAT_PATH = "/chat/completions"
 API_TIMEOUT = 60
 API_MAX_RETRIES = 2
 RETRY_DELAY_SECONDS = 8
@@ -347,6 +348,23 @@ def _validate_images(images: Iterable[str]) -> Tuple[bool, Optional[str]]:
 	return True, None
 
 
+def _resolve_chat_endpoint(base_url_override: Optional[str]) -> str:
+	"""Build the chat-completions URL for the active provider.
+
+	When ``base_url_override`` is empty/None we fall back to the OpenRouter
+	default. Otherwise we accept either a bare base URL (``https://host/v1``)
+	or a fully-qualified chat endpoint (``https://host/v1/chat/completions``)
+	and normalise to the latter.
+	"""
+	candidate = (base_url_override or "").strip()
+	if not candidate:
+		return API_ENDPOINT
+	normalised = candidate.rstrip("/")
+	if normalised.endswith(_DEFAULT_CHAT_PATH):
+		return normalised
+	return f"{normalised}{_DEFAULT_CHAT_PATH}"
+
+
 def get_openrouter_metadata(
 	image_path: Union[str, List[str]],
 	api_key: str,
@@ -357,6 +375,7 @@ def get_openrouter_metadata(
 	keyword_count: Union[str, int] = "49",
 	priority: str = "Detailed",
 	is_vector_conversion: bool = False,
+	base_url_override: Optional[str] = None,
 ):
 	images: List[str] = image_path if isinstance(image_path, list) else [image_path]
 	is_valid, error_message = _validate_images(images)
@@ -367,7 +386,16 @@ def get_openrouter_metadata(
 	if check_stop_event(stop_event, "OpenRouter request cancelled before submission"):
 		return "stopped"
 
-	model_to_use = (selected_model_input or "openai/gpt-4.1").strip()
+	endpoint_url = _resolve_chat_endpoint(base_url_override)
+	provider_label = "Custom" if base_url_override else "OpenRouter"
+	default_model = "openai/gpt-4.1" if not base_url_override else ""
+	model_to_use = (selected_model_input or default_model).strip()
+	if not model_to_use:
+		log_message(
+			f"{provider_label} provider requires a model selection.",
+			"error",
+		)
+		return {"error": "custom_provider_no_model" if base_url_override else "openrouter_no_model"}
 	api_model = model_to_use
 	reasoning_effort = None
 	verbosity = None
@@ -383,7 +411,7 @@ def get_openrouter_metadata(
 
 	attempt = 0
 	while attempt < API_MAX_RETRIES:
-		if check_stop_event(stop_event, "OpenRouter request cancelled during retries"):
+		if check_stop_event(stop_event, f"{provider_label} request cancelled during retries"):
 			return "stopped"
 
 		payload = _build_payload(
@@ -402,18 +430,18 @@ def get_openrouter_metadata(
 			"Content-Type": "application/json",
 			"Accept": "application/json",
 		}
-		if OPENROUTER_HTTP_REFERER:
+		if not base_url_override and OPENROUTER_HTTP_REFERER:
 			headers["HTTP-Referer"] = OPENROUTER_HTTP_REFERER
-		if OPENROUTER_TITLE:
+		if not base_url_override and OPENROUTER_TITLE:
 			headers["X-Title"] = OPENROUTER_TITLE
 
 		try:
 			log_message(
-				f"Sending metadata request to OpenRouter model {model_to_use} (key ...{api_key[-5:]})",
+				f"Sending metadata request to {provider_label} model {model_to_use} (key ...{api_key[-5:]})",
 				"info",
 			)
 			response = requests.post(
-				API_ENDPOINT,
+				endpoint_url,
 				headers=headers,
 				json=payload,
 				timeout=API_TIMEOUT,
@@ -421,14 +449,14 @@ def get_openrouter_metadata(
 		except requests.RequestException as exc:
 			if check_stop_event(stop_event):
 				return "stopped"
-			log_message(f"OpenRouter request failed: {exc}", "error")
+			log_message(f"{provider_label} request failed: {exc}", "error")
 			attempt += 1
 			if attempt >= API_MAX_RETRIES:
 				return {"error": str(exc)}
 			sleep_duration = RETRY_DELAY_SECONDS * attempt
 			sleep_start = time.time()
 			while time.time() - sleep_start < sleep_duration:
-				if check_stop_event(stop_event, "OpenRouter retry sleep cancelled"):
+				if check_stop_event(stop_event, f"{provider_label} retry sleep cancelled"):
 					return "stopped"
 				time.sleep(0.1)
 			continue
@@ -437,7 +465,7 @@ def get_openrouter_metadata(
 			try:
 				response_data = response.json()
 			except json.JSONDecodeError as exc:
-				log_message(f"Failed to decode OpenRouter response JSON: {exc}", "error")
+				log_message(f"Failed to decode {provider_label} response JSON: {exc}", "error")
 				return {"error": "invalid_json"}
 
 			usage_payload = response_data.get("usage") or {}
@@ -449,25 +477,25 @@ def get_openrouter_metadata(
 
 			metadata = _parse_openrouter_response(response_data, keyword_count)
 			if metadata:
-				log_message("Metadata successfully extracted from OpenRouter response", "success")
+				log_message(f"Metadata successfully extracted from {provider_label} response", "success")
 				return metadata
 
-			log_message("OpenRouter response did not include usable metadata", "warning")
+			log_message(f"{provider_label} response did not include usable metadata", "warning")
 			return {"error": "empty_response"}
 
 		if response.status_code in {401, 403}:
-			log_message("OpenRouter authentication error - check API key permissions", "error")
+			log_message(f"{provider_label} authentication error - check API key permissions", "error")
 			return {"error": f"Authentication failed ({response.status_code})"}
 
 		if response.status_code == 429:
 			if check_stop_event(stop_event):
 				return "stopped"
-			log_message("OpenRouter rate limit hit, backing off before retry", "warning")
+			log_message(f"{provider_label} rate limit hit, backing off before retry", "warning")
 			attempt += 1
 			sleep_duration = RETRY_DELAY_SECONDS * attempt
 			sleep_start = time.time()
 			while time.time() - sleep_start < sleep_duration:
-				if check_stop_event(stop_event, "OpenRouter retry sleep cancelled"):
+				if check_stop_event(stop_event, f"{provider_label} retry sleep cancelled"):
 					return "stopped"
 				time.sleep(0.1)
 			continue
@@ -475,12 +503,12 @@ def get_openrouter_metadata(
 		if 500 <= response.status_code < 600:
 			if check_stop_event(stop_event):
 				return "stopped"
-			log_message(f"OpenRouter server error {response.status_code}, retrying", "warning")
+			log_message(f"{provider_label} server error {response.status_code}, retrying", "warning")
 			attempt += 1
 			sleep_duration = RETRY_DELAY_SECONDS * attempt
 			sleep_start = time.time()
 			while time.time() - sleep_start < sleep_duration:
-				if check_stop_event(stop_event, "OpenRouter retry sleep cancelled"):
+				if check_stop_event(stop_event, f"{provider_label} retry sleep cancelled"):
 					return "stopped"
 				time.sleep(0.1)
 			continue
@@ -506,7 +534,7 @@ def get_openrouter_metadata(
 					error_message = fallback_text[:200]
 
 		log_message(
-			f"OpenRouter request failed (HTTP {response.status_code}): {error_message}",
+			f"{provider_label} request failed (HTTP {response.status_code}): {error_message}",
 			"error",
 		)
 		return {"error": error_message or f"http_{response.status_code}"}
@@ -514,9 +542,19 @@ def get_openrouter_metadata(
 	return {"error": "openrouter_max_retries"}
 
 
-def check_api_keys_status(api_keys: Iterable[str], model: Optional[str] = None) -> dict:
+def check_api_keys_status(
+	api_keys: Iterable[str],
+	model: Optional[str] = None,
+	base_url_override: Optional[str] = None,
+) -> dict:
 	results: Dict[str, Tuple[int, str]] = {}
-	test_model = (model or "openai/gpt-4.1").strip()
+	endpoint_url = _resolve_chat_endpoint(base_url_override)
+	default_model = "openai/gpt-4.1" if not base_url_override else ""
+	test_model = (model or default_model).strip()
+	if not test_model:
+		for key in api_keys:
+			results[key] = (-1, "Model required for custom provider key check")
+		return results
 	api_model = test_model
 
 	payload = {
@@ -553,14 +591,14 @@ def check_api_keys_status(api_keys: Iterable[str], model: Optional[str] = None) 
 			"Content-Type": "application/json",
 			"Accept": "application/json",
 		}
-		if OPENROUTER_HTTP_REFERER:
+		if not base_url_override and OPENROUTER_HTTP_REFERER:
 			headers["HTTP-Referer"] = OPENROUTER_HTTP_REFERER
-		if OPENROUTER_TITLE:
+		if not base_url_override and OPENROUTER_TITLE:
 			headers["X-Title"] = OPENROUTER_TITLE
 
 		try:
 			response = requests.post(
-				API_ENDPOINT,
+				endpoint_url,
 				headers=headers,
 				json=payload,
 				timeout=20,
