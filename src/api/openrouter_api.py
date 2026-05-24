@@ -23,6 +23,7 @@ import os
 import threading
 import time
 from typing import Dict, Iterable, List, Optional, Tuple, Union
+from urllib.parse import urlsplit, urlunsplit
 
 import requests
 import re
@@ -354,15 +355,16 @@ def _resolve_chat_endpoint(base_url_override: Optional[str]) -> str:
 	When ``base_url_override`` is empty/None we fall back to the OpenRouter
 	default. Otherwise we accept either a bare base URL (``https://host/v1``)
 	or a fully-qualified chat endpoint (``https://host/v1/chat/completions``)
-	and normalise to the latter.
+	and normalise to the latter while preserving query strings and fragments.
 	"""
 	candidate = (base_url_override or "").strip()
 	if not candidate:
 		return API_ENDPOINT
-	normalised = candidate.rstrip("/")
-	if normalised.endswith(_DEFAULT_CHAT_PATH):
-		return normalised
-	return f"{normalised}{_DEFAULT_CHAT_PATH}"
+	parts = urlsplit(candidate)
+	path = parts.path.rstrip("/")
+	if not path.endswith(_DEFAULT_CHAT_PATH):
+		path = f"{path}{_DEFAULT_CHAT_PATH}"
+	return urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
 
 
 def get_openrouter_metadata(
@@ -383,7 +385,7 @@ def get_openrouter_metadata(
 		log_message(error_message or "Invalid image for OpenRouter request", "warning")
 		return {"error": error_message or "unsupported_image_format"}
 
-	if check_stop_event(stop_event, "OpenRouter request cancelled before submission"):
+	if check_stop_event(stop_event, "Metadata request cancelled before submission"):
 		return "stopped"
 
 	endpoint_url = _resolve_chat_endpoint(base_url_override)

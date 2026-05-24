@@ -31,6 +31,10 @@ from src.processing.image_processing.format_png_processing import process_png
 from src.processing.vector_processing.format_eps_ai_processing import convert_eps_to_jpg
 from src.processing.vector_processing.format_svg_processing import convert_svg_to_jpg
 from src.processing.video_processing import process_video
+from src.processing.error_classifier import (
+    NON_RETRYABLE_ERROR_CODES,
+    classify_metadata_error,
+)
 from src.api import provider_manager
 from src.metadata.csv_exporter import write_to_platform_csvs
 from src.metadata.exif_writer import write_exif_with_exiftool
@@ -47,8 +51,9 @@ RETRYABLE_STATUSES = {
 }
 
 NON_RETRYABLE_STATUSES = {
-    "failed_format", "failed_empty", "failed_input_missing"  
+    "failed_format", "failed_empty", "failed_input_missing", "failed_config"  
 }
+
 
 def is_retryable(status: str, attempt: int) -> bool:
     if status in NON_RETRYABLE_STATUSES:
@@ -175,7 +180,7 @@ def process_vector_file(
         return "stopped", None, None
     elif isinstance(metadata_result, dict) and "error" in metadata_result:
         log_message(f"API Error detail: {metadata_result['error']}")
-        return "failed_api", None, None
+        return classify_metadata_error(metadata_result["error"]), None, None
     elif isinstance(metadata_result, dict):
         metadata = metadata_result
     else:
@@ -827,6 +832,8 @@ def batch_process_files(
                                     log_message(f"✗ {filename} (empty file)", "error")
                                 elif status == "failed_input_missing":
                                      log_message(f"✗ {filename} (input missing)", "error")
+                                elif status == "failed_config":
+                                     log_message(f"✗ {filename} (provider misconfiguration — fix and re-run)", "error")
                                 else: 
                                      log_message(f"✗ {filename} ({status})", "error")
                             

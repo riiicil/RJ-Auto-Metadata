@@ -401,8 +401,6 @@ def check_api_keys_status(
     base_url_override: Optional[str] = None,
 ):
     module, provider_key = get_provider_module(provider)
-    if module is None:
-        return {k: (-1, "No module for this provider") for k in api_keys}
     if provider_key == PROVIDER_CUSTOM:
         effective_base_url = (base_url_override or "").strip()
         if not effective_base_url:
@@ -412,6 +410,8 @@ def check_api_keys_status(
             model=model,
             base_url_override=effective_base_url,
         )
+    if module is None:
+        return {k: (-1, "No module for this provider") for k in api_keys}
     return module.check_api_keys_status(list(api_keys), model=model)
 
 
