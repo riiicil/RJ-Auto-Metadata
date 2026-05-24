@@ -2,7 +2,7 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-3.12.1-green.svg)](https://github.com/riiicil/RJ-Auto-Metadata/releases)
+[![Version](https://img.shields.io/badge/version-3.12.2-green.svg)](https://github.com/riiicil/RJ-Auto-Metadata/releases)
 
 AI-powered batch metadata generator for stock photographers, videographers, and graphic designers.
 

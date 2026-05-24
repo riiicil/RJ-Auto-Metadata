@@ -4,7 +4,7 @@
 
 ## Version
 
-**3.12.1** (tagged `v3.12.1` on `main`)
+**3.12.2** (tagged `v3.12.2` on `main`)
 
 ## Branch Structure
 
@@ -15,7 +15,8 @@
 - `task/refactor-ui` — Phase 2 work branch (merged to dev)
 - `task/add-providers` — Phase 4A work branch (merged to dev)
 - `task/dynamic-prompt-builder` — Phase 4B work branch (merged to dev)
-- `task/wire-advanced-params` — Phase 4C Step 3 work branch (current)
+- `task/wire-advanced-params` — Phase 4C Step 3 work branch (merged to dev)
+- `kaine-na:task/fix-custom-provider-base-url` — Phase 4E work branch (merged to main via PR #4)
 
 ## Supported Providers
 
@@ -28,7 +29,7 @@
 | **KoboiLLM** | Chat Completions | Unchanged |
 | **Mistral** | OpenAI compat (`/v1`) | Added in Phase 4A |
 | **Blackbox** | OpenAI compat (`/`) | Added in Phase 4A |
-| **Custom** | User-defined base URL | Added in Phase 1, UI added in Phase 2 |
+| **Custom** | User-defined base URL | Added in Phase 1, UI added in Phase 2, fully wired in Phase 4E |
 
 ## Technical Debt Resolved in Phase 1
 
@@ -121,6 +122,17 @@
 - **Blackbox keyword bug fixed**: Same changes applied to `get_blackbox_metadata()`. The `response_format` parameter is wrapped in a try/except that retries without it if the provider does not support it.
 - **Fallback no longer triggered**: Before this fix, `provider_manager._fill_keywords_if_short()` found zero tags and replaced them with words split from the title/description. After the fix, the correct array is returned under `"tags"` and the fallback is bypassed.
 - **Version Bumped to 3.12.1**: Bumped version from 3.12.0 to 3.12.1 across the codebase.
+
+## Changes in Phase 4E (Hotfix — Custom Provider End-to-End)
+
+- **Root cause 1 fixed**: `app.py` `_custom_base_url_var` was never forwarded to the worker pipeline. The `base_url_override` value now threads through `batch_process_files()` → `process_single_file()` → all format processors (`format_jpg_jpeg_processing.py`, `format_png_processing.py`, `video_processing.py`, `batch_processing.py` vector path).
+- **Root cause 2 fixed**: `openrouter_api.py` was hardcoded to `API_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"` even when a `base_url_override` was supplied. Added `_resolve_chat_endpoint()` helper using `urllib.parse.urlsplit` that normalises any base URL to the correct chat-completions endpoint.
+- **API key check fixed**: `_cek_api_keys()` in `app.py` now reads `_custom_base_url_var` and passes it through `check_api_keys_status()` → `provider_manager.check_api_keys_status()` → `openrouter_api.check_api_keys_status()`.
+- **Early model guard**: `provider_manager.get_metadata()` and `openrouter_api.get_openrouter_metadata()` now return `{"error": "custom_provider_no_model"}` immediately when no model is selected for Custom, instead of silently falling back to `openai/gpt-4.1`.
+- **OpenRouter headers isolated**: `HTTP-Referer` and `X-Title` headers are skipped when `base_url_override` is active.
+- **New `src/processing/error_classifier.py`**: Dependency-free helper mapping config error codes (`custom_provider_no_base_url`, `custom_provider_no_model`, `openrouter_no_model`) to `failed_config` non-retryable status; prevents burning 5 retry rounds on user config mistakes.
+- **New `tests/api/test_custom_provider_smoke.py`**: 11 smoke tests covering endpoint resolution, threaded override, missing-URL/model guards, dispatcher routing, error-classifier demotion, and end-to-end URL correctness. No network required.
+- **Version bumped to 3.12.2**.
 
 ## Remaining Technical Debt
 
