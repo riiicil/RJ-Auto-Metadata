@@ -20,6 +20,7 @@ import shutil
 
 from src.api import provider_manager
 from src.metadata.csv_exporter import write_to_platform_csvs
+from src.processing.error_classifier import classify_metadata_error
 from src.utils.compression import compress_image, get_temp_compression_folder
 from src.utils.logging import log_message
 
@@ -35,6 +36,7 @@ def process_png(
     embedding_enabled=True,
     keyword_count="49",
     priority="Details",
+    base_url_override=None,
 ):
     filename = os.path.basename(input_path)
     initial_output_path = os.path.join(output_dir, filename)
@@ -86,6 +88,7 @@ def process_png(
         keyword_count=keyword_count,
         priority=priority,
         is_vector_conversion=False,
+        base_url_override=base_url_override,
     )
     
     for temp_file in temp_files_created:
@@ -100,7 +103,7 @@ def process_png(
         return "stopped", None, None
     elif isinstance(metadata_result, dict) and "error" in metadata_result:
         log_message(f"API Error detail: {metadata_result['error']}")
-        return "failed_api", None, None
+        return classify_metadata_error(metadata_result["error"]), None, None
     elif isinstance(metadata_result, dict):
         metadata = metadata_result
     else:

@@ -340,7 +340,19 @@ class MetadataApp(ctk.CTk):
         self._log("Checking status of all API keys...", "info")
         try:
             provider_name = self.provider_var.get() if hasattr(self, "provider_var") else self.selected_provider
-            results = check_api_keys_status(api_keys, model=self.model_var.get(), provider=provider_name)
+            base_url_for_check = None
+            if provider_name == provider_manager.PROVIDER_CUSTOM and hasattr(self, "_custom_base_url_var"):
+                base_url_for_check = self._custom_base_url_var.get().strip() or None
+                if not base_url_for_check:
+                    self._log("Custom provider requires a Base URL before checking keys.", "warning")
+                    self.cek_api_button.configure(state=tk.NORMAL)
+                    return
+            results = check_api_keys_status(
+                api_keys,
+                model=self.model_var.get(),
+                provider=provider_name,
+                base_url_override=base_url_for_check,
+            )
             ok_keys = [k for k, (s, msg) in results.items() if s == 200]
             err_keys = [(k, s, msg) for k, (s, msg) in results.items() if s != 200]
             if len(ok_keys) == len(api_keys):
@@ -1554,6 +1566,36 @@ class MetadataApp(ctk.CTk):
                 "Please enter at least one API Key.")
             return
 
+        # Custom provider must have a Base URL or the request will go nowhere.
+        provider_for_validation = (
+            self.provider_var.get() if hasattr(self, "provider_var") else ""
+        )
+        if provider_for_validation == provider_manager.PROVIDER_CUSTOM:
+            custom_base_url = (
+                self._custom_base_url_var.get().strip()
+                if hasattr(self, "_custom_base_url_var") else ""
+            )
+            if not custom_base_url:
+                self._reset_ui_after_processing()
+                tk.messagebox.showwarning(
+                    "Base URL Required",
+                    "Custom provider requires a Base URL\n"
+                    "(for example, https://your-endpoint/v1).\n\n"
+                    "Enter a Base URL in the API panel before starting.",
+                )
+                return
+            selected_model_for_validation = (
+                self.model_var.get().strip() if hasattr(self, "model_var") else ""
+            )
+            if not selected_model_for_validation:
+                self._reset_ui_after_processing()
+                tk.messagebox.showwarning(
+                    "Model Required",
+                    "Custom provider requires a model selection.\n"
+                    "Use Fetch Models or enter a model id manually.",
+                )
+                return
+
         try:
             delay_sec = int(self.delay_var.get().strip() or "0")
             if delay_sec < 0:
@@ -1742,6 +1784,12 @@ class MetadataApp(ctk.CTk):
                 priority=priority,
                 bypass_api_key_limit=bypass_api_key_limit,
                 prompt_config=prompt_config,
+                base_url_override=(
+                    self._custom_base_url_var.get().strip()
+                    if provider_name == provider_manager.PROVIDER_CUSTOM
+                    and hasattr(self, "_custom_base_url_var")
+                    else None
+                ),
             )
 
             self.processed_count = result.get("processed_count", 0)

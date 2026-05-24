@@ -17,6 +17,11 @@
 # src/api/api_key_checker.py
 from src.api.provider_manager import (check_api_keys_status as provider_check_api_keys_status,get_default_provider,)
 
-def check_api_keys_status(api_keys, model=None, provider=None):
+def check_api_keys_status(api_keys, model=None, provider=None, base_url_override=None):
     provider_name = provider or get_default_provider()
-    return provider_check_api_keys_status(provider_name, api_keys, model=model)
+    return provider_check_api_keys_status(
+        provider_name,
+        api_keys,
+        model=model,
+        base_url_override=base_url_override,
+    )
