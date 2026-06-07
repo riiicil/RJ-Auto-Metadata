@@ -149,6 +149,15 @@ Notes:
 - Merged via PR #4 from `kaine-na:task/fix-custom-provider-base-url` directly into `main`.
 - Backward compatible: `base_url_override=None` keeps all non-Custom providers bit-for-bit identical.
 
+## Phase 4F: iLabs Integration & Spaces Fix (`task/integrate-ilabs-and-fix-spaces`) — Complete
+
+| # | Item | Status |
+|---|---|---|
+| P4F-1 | Create `src/api/ilabs_api.py` and register it in `provider_manager.py` | ✅ Done |
+| P4F-2 | Remove the space-stripping block inside `provider_manager.py` to preserve multi-word keywords | ✅ Done |
+| P4F-3 | Create `tests/api/test_ilabs_and_spaces.py` to verify the provider and space-preservation behavior | ✅ Done |
+| P4F-4 | Update docs (`CURRENT_STATE`, `HANDOFF`, `ROADMAP`) + bump version to 3.12.3 | ✅ Done |
+
 ## Out of Scope
 
 - No new providers beyond Custom
