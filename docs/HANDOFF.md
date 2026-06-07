@@ -10,6 +10,10 @@
 >
 > The release shipped from the dev branch in May 2026 is **v3.12.1** — a significant feature and refactoring release (multi-provider, Advanced tab, stop mechanism, prompt system overhaul) but one that does not yet complete the full architectural normalization.
 >
+> **v3.12.2** (May 2026) is a hotfix release that makes the Custom provider fully functional end-to-end (PR #4 by `kaine-na`).
+>
+> **v3.12.3** (June 2026) is a feature and bugfix release integrating the iLabs OpenAI-compatible provider and resolving the keyword space-stripping bug in the metadata generation pipeline.
+>
 > The "v4" label in docs = future architectural goal, not the next version number on the release page.
 
 ## Phase 0 Status: Complete
@@ -199,9 +203,31 @@ Both are now resolved by the single centralized flag and the separated UI/stop-s
   78 proper AI-generated keywords; `"tags"` key correctly populated; no fallback triggered.
 - Blackbox fix is structurally identical; live validation depends on available key credits.
 
+## Phase 4E Status: Complete (Hotfix — Custom Provider End-to-End)
+
+### What Was Done
+
+- **Root cause 1**: `app.py` never forwarded `_custom_base_url_var` to the worker pipeline. `base_url_override` now threads end-to-end through `batch_process_files()` → `process_single_file()` → all format processors.
+- **Root cause 2**: `openrouter_api.py` was hardcoded to the OpenRouter endpoint. Added `_resolve_chat_endpoint()` helper that builds the correct chat-completions URL from the user-supplied base URL, using `urllib.parse.urlsplit` (preserves query strings and fragments).
+- **API key check**: `_cek_api_keys()` in `app.py` now passes `base_url_override` through the full `check_api_keys_status()` chain for Custom.
+- **Early model guard**: Returns `{"error": "custom_provider_no_model"}` immediately when no model is selected, instead of silently falling back to `openai/gpt-4.1`.
+- **OpenRouter headers isolated**: `HTTP-Referer` / `X-Title` headers skipped when override is active.
+- **New `src/processing/error_classifier.py`**: Maps config error codes to `failed_config` non-retryable status.
+- **New `tests/api/test_custom_provider_smoke.py`**: 11 smoke tests (no network).
+- **Version bumped to 3.12.2**.
+
+## Phase 4F Status: Complete (iLabs & Keyword Spaces)
+
+### What Was Done
+
+- **iLabs Provider Integration**: Integrated support for iLabs as a new OpenAI-compatible AI gateway provider. Created `src/api/ilabs_api.py` and registered it in `provider_manager.py`. The provider is loaded dynamically into the UI dropdown.
+- **Keyword Space Preservation**: Removed the space-stripping block inside `provider_manager.py`'s `_fill_keywords_if_short()` -> `add_tag()`. Multi-word keywords (e.g. `"railway station"`) are now correctly preserved with spaces intact, affecting both EXIF and CSV output.
+- **New `tests/api/test_ilabs_and_spaces.py`**: Added unit tests validating that iLabs is listed under registered providers, and asserting that spaces in multi-word keywords are not stripped during processing.
+- **Version bumped to 3.12.3**.
+
 ## Next Phase
 
-Dev branch has been merged to main and released as **v3.12.0** (May 2026). The next work is the architectural refactoring described in docs/CODEBASE_ANALYSIS.md: splitting app.py into focused modules, creating a unified API base class, decoupling batch processing, and completing the normalization described in docs/ANALISYS_REFACTORING.md.
+Dev branch has been merged to main and released as **v3.12.0** and hotfixed as **v3.12.1**, **v3.12.2** (May 2026), and **v3.12.3** (June 2026). The next work is the architectural refactoring described in docs/CODEBASE_ANALYSIS.md: splitting app.py into focused modules, creating a unified API base class, decoupling batch processing, and completing the normalization described in docs/ANALISYS_REFACTORING.md.
 
 ## Key Decisions Already Made
 

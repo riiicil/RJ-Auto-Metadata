@@ -17,13 +17,15 @@ Standalone Python desktop application. No server, no frontend build step. Single
 
 - **Directory**: `src/api/`
 - **Dispatcher**: `provider_manager.py` — routes requests to the correct provider module, fills keywords if short, handles stop events
-- **Provider modules**: One file per provider (`gemini_api.py`, `openai_api.py`, `openrouter_api.py`, `groq_api.py`, `koboillm_api.py`)
+- **Provider modules**: One file per provider (`gemini_api.py`, `openai_api.py`, `openrouter_api.py`, `groq_api.py`, `koboillm_api.py`, `mistral_api.py`, `blackbox_api.py`); Custom provider dispatches via `openrouter_api.py` with `base_url_override`
 
 ### Processing Layer
 
+- **Directory**: `src/processing/`
 - **File**: `src/processing/batch_processing.py`
 - **Role**: Threaded batch processor using `concurrent.futures.ThreadPoolExecutor`
 - **Sub-processors**: `image_processing/`, `vector_processing/`, `video_processing.py` — format-specific preprocessing before API calls
+- **Error classification**: `src/processing/error_classifier.py` — maps provider error codes to non-retryable `failed_config` pipeline status
 
 ### Utils
 
@@ -48,13 +50,16 @@ Standalone Python desktop application. No server, no frontend build step. Single
 
 ## Provider Table
 
-| Provider | Current Endpoint | Format | Post-Refactor |
-|---|---|---|---|
-| **Gemini** | `generativelanguage.googleapis.com/v1beta/models/{model}:generateContent` | Native REST (non-standard) | OpenAI compat (`v1beta/openai/`) |
-| **OpenAI** | `api.openai.com/v1/responses` | Responses API | Stays as Responses API |
-| **OpenRouter** | `openrouter.ai/api/v1/chat/completions` | Chat Completions | No change |
-| **Groq** | `api.groq.com/openai/v1/chat/completions` | Chat Completions | No change |
-| **KoboiLLM** | `litellm.koboi2026.biz.id/chat/completions` | Chat Completions | No change |
+| Provider | Endpoint | Format |
+|---|---|---|
+| **Gemini** | `v1beta/openai/` (compat) | OpenAI SDK |
+| **OpenAI** | `api.openai.com/v1/responses` | Responses API |
+| **OpenRouter** | `openrouter.ai/api/v1/chat/completions` | Chat Completions |
+| **Groq** | `api.groq.com/openai/v1/chat/completions` | Chat Completions |
+| **KoboiLLM** | `litellm.koboi2026.biz.id/chat/completions` | Chat Completions |
+| **Mistral** | `api.mistral.ai/v1` | OpenAI compat |
+| **Blackbox** | `api.blackbox.ai` | OpenAI compat |
+| **Custom** | User-defined base URL | OpenAI compat (via `openrouter_api` + `base_url_override`) |
 
 ## Request Flow
 
@@ -100,15 +105,13 @@ Output folder + CSV files
 - `api_keys` — per-provider key storage
 - `provider` — last used provider name
 - `model` — last selected model ID
-- `priority` — prompt detail level (Detailed/Balanced/Less)
+- `priority` — prompt detail level (Detailed/Balanced/Less/Custom)
 - `keyword_count` — max keywords (8–49)
 - `theme` — light/dark/system
 - `installation_id`, `analytics_enabled` — anonymous analytics
-
-**Planned new fields** (post-refactor):
 - `models_by_provider` — cached model lists per provider `{provider: [model_ids]}`
 - `selected_model_by_provider` — last selected model per provider `{provider: model_id}`
-- `base_url_override` — custom base URL (for Custom provider)
+- `custom_base_url` — Custom provider base URL
 
 ## Planned Changes Summary
 

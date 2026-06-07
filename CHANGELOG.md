@@ -16,6 +16,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 -
 
+## [3.12.3] - 2026-06-07
+
+### Added
+- **iLabs Provider**: Integrated support for iLabs as a new OpenAI-compatible AI gateway provider, mapping its completions endpoint (`https://api.thisilabs.com/v1`) and default models.
+
+### Fixed
+- **Keyword Space-Stripping**: Resolved a bug in the metadata keyword-filling pipeline where multi-word keywords containing spaces (e.g., `"railway station"`, `"steam locomotive"`) had their spaces stripped (e.g., turning into `"railwaystation"`), ensuring they remain intact in both the EXIF embedding and CSV export outputs.
+
+## [3.12.2] - 2026-05-24
+
+### Added
+- **`src/processing/error_classifier.py`**: New dependency-free helper that maps structural config error codes (`custom_provider_no_base_url`, `custom_provider_no_model`, `openrouter_no_model`) to a `failed_config` non-retryable pipeline status — prevents burning 5 retry rounds on user-configuration mistakes.
+- **`tests/api/test_custom_provider_smoke.py`**: 11 smoke tests covering endpoint resolution (including query/fragment preservation and mid-path edge cases), the threaded `base_url_override` pass-through, missing-base-url and missing-model guards, the dispatcher's Custom path, error-classifier demotion, and end-to-end HTTP URL routing. No network required.
+
+### Fixed
+- **Custom provider completely non-functional**: Two root causes fixed end-to-end:
+  1. `app.py` never forwarded `_custom_base_url_var` to the worker pipeline — `batch_process_files()` → `process_single_file()` → all format processors now receive and pass `base_url_override`.
+  2. `openrouter_api.py` was hardcoded to `https://openrouter.ai/api/v1/chat/completions` even when an override was supplied — replaced with `_resolve_chat_endpoint()` helper that builds the correct URL from the user's base URL.
+- **Custom provider API key check ignored Base URL**: `_cek_api_keys()` in `app.py` now reads `_custom_base_url_var` and passes it through `check_api_keys_status()` → `provider_manager` → `openrouter_api.check_api_keys_status()`.
+- **Missing model not caught early**: Both `provider_manager.get_metadata()` and `openrouter_api.get_openrouter_metadata()` now return `{"error": "custom_provider_no_model"}` immediately when no model is selected for Custom, instead of defaulting to `openai/gpt-4.1`.
+- **OpenRouter proprietary headers leaked to Custom endpoints**: `HTTP-Referer` and `X-Title` headers are now skipped when `base_url_override` is active.
+- **Version bumped to 3.12.2**: Bumped version from 3.12.1 to 3.12.2 across `src/ui/app.py`, `setup.iss`, `AGENTS.md`, `README.md`, `CHANGELOG.md`, `docs/HANDOFF.md`, `docs/CURRENT_STATE.md`.
+
 ## [3.12.1] - 2026-05-21
 
 ### Fixed

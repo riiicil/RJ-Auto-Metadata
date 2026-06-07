@@ -8,7 +8,7 @@
 - **Language**: Python 3.9+
 - **UI Framework**: CustomTkinter
 - **AI SDK**: OpenAI SDK (used across all providers via OpenAI-compatible endpoints)
-- **Version**: 3.12.1
+- **Version**: 3.12.3
 - **License**: AGPL-3.0
 
 ## Repository Structure

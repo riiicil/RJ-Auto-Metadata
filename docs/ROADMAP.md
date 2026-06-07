@@ -132,6 +132,32 @@ Notes:
 - Thread-local pattern avoids modifying format processors or `*_api.py` files.
 - Injected keywords affect CSV output; EXIF was already written inside format processors.
 
+## Phase 4E: Custom Provider Hotfix (`kaine-na:task/fix-custom-provider-base-url`) — Complete
+
+| # | Item | Status |
+|---|---|---|
+| P4E-1 | Thread `base_url_override` end-to-end: `app.py` → `batch_process_files()` → `process_single_file()` → all format processors | ✅ Done |
+| P4E-2 | Add `_resolve_chat_endpoint()` to `openrouter_api.py` replacing hardcoded `API_ENDPOINT` | ✅ Done |
+| P4E-3 | Fix `_cek_api_keys()` in `app.py` to forward `base_url_override` for Custom | ✅ Done |
+| P4E-4 | Add early model guard in `provider_manager` and `openrouter_api` for Custom | ✅ Done |
+| P4E-5 | Isolate OpenRouter proprietary headers from Custom endpoint requests | ✅ Done |
+| P4E-6 | Add `src/processing/error_classifier.py` (`failed_config` non-retryable status) | ✅ Done |
+| P4E-7 | Add `tests/api/test_custom_provider_smoke.py` (11 smoke tests, no network) | ✅ Done |
+| P4E-8 | Update docs (`CURRENT_STATE`, `HANDOFF`, `ROADMAP`, `ARCHITECTURE`) + bump version to 3.12.2 | ✅ Done |
+
+Notes:
+- Merged via PR #4 from `kaine-na:task/fix-custom-provider-base-url` directly into `main`.
+- Backward compatible: `base_url_override=None` keeps all non-Custom providers bit-for-bit identical.
+
+## Phase 4F: iLabs Integration & Spaces Fix (`task/integrate-ilabs-and-fix-spaces`) — Complete
+
+| # | Item | Status |
+|---|---|---|
+| P4F-1 | Create `src/api/ilabs_api.py` and register it in `provider_manager.py` | ✅ Done |
+| P4F-2 | Remove the space-stripping block inside `provider_manager.py` to preserve multi-word keywords | ✅ Done |
+| P4F-3 | Create `tests/api/test_ilabs_and_spaces.py` to verify the provider and space-preservation behavior | ✅ Done |
+| P4F-4 | Update docs (`CURRENT_STATE`, `HANDOFF`, `ROADMAP`) + bump version to 3.12.3 | ✅ Done |
+
 ## Out of Scope
 
 - No new providers beyond Custom

@@ -22,7 +22,7 @@ import re
 
 from src.api import (
     gemini_api, openai_api, openrouter_api, groq_api, koboillm_api,
-    mistral_api, blackbox_api,
+    mistral_api, blackbox_api, ilabs_api,
 )
 from src.utils.logging import log_message
 from src.utils import stop_flag as _stop_flag
@@ -30,6 +30,7 @@ from src.utils import stop_flag as _stop_flag
 PROVIDER_GEMINI = "Gemini"
 PROVIDER_OPENAI = "OpenAI"
 PROVIDER_OPENROUTER = "OpenRouter"
+PROVIDER_ILABS = "iLabs"
 PROVIDER_GROQ = "Groq"
 PROVIDER_KOBOILLM = "KoboiLLM"
 PROVIDER_CUSTOM = "Custom"
@@ -41,6 +42,7 @@ PROVIDER_BASE_URLS = {
     PROVIDER_GEMINI: "https://generativelanguage.googleapis.com/v1beta/openai/",
     PROVIDER_OPENAI: "https://api.openai.com/v1",
     PROVIDER_OPENROUTER: "https://openrouter.ai/api/v1",
+    PROVIDER_ILABS: "https://api.thisilabs.com/v1",
     PROVIDER_GROQ: "https://api.groq.com/openai/v1",
     PROVIDER_KOBOILLM: "https://litellm.koboi2026.biz.id",
     PROVIDER_MISTRAL: "https://api.mistral.ai/v1",
@@ -59,6 +61,10 @@ _PROVIDERS = {
     },
     PROVIDER_OPENROUTER: {
         "module": openrouter_api,
+        "supports_auto_rotation": False,
+    },
+    PROVIDER_ILABS: {
+        "module": ilabs_api,
         "supports_auto_rotation": False,
     },
     PROVIDER_GROQ: {
@@ -223,10 +229,7 @@ def get_metadata(
             tag_text = re.sub(r"\s+", " ", tag_text).strip()
             if not tag_text:
                 return
-            if " " in tag_text:
-                tag_text = tag_text.replace(" ", "")
-                if not tag_text:
-                    return
+            # Keep spaces intact to support multi-word keywords (e.g. "railway station")
             lower = tag_text.lower()
             if lower in seen:
                 return
@@ -265,6 +268,9 @@ def get_metadata(
         if not effective_base_url:
             log_message("Custom provider requires a base_url_override.", "error")
             return {"error": "custom_provider_no_base_url"}
+        if not (effective_model or "").strip():
+            log_message("Custom provider requires a model selection.", "error")
+            return {"error": "custom_provider_no_model"}
         result = openrouter_api.get_openrouter_metadata(
             image_path,
             api_key,
@@ -275,6 +281,7 @@ def get_metadata(
             keyword_count=keyword_count,
             priority=priority,
             is_vector_conversion=is_vector_conversion,
+            base_url_override=effective_base_url,
         )
         if isinstance(result, dict) and "error" not in result:
             return _sanitize_title_length(_fill_keywords_if_short(result, keyword_count))
@@ -373,6 +380,21 @@ def get_metadata(
         if isinstance(result, dict) and "error" not in result:
             return _sanitize_title_length(_fill_keywords_if_short(result, keyword_count))
         return result
+    if provider_key == PROVIDER_ILABS:
+        result = module.get_ilabs_metadata(
+            image_path,
+            api_key,
+            stop_event,
+            use_png_prompt=use_png_prompt,
+            use_video_prompt=use_video_prompt,
+            selected_model_input=effective_model,
+            keyword_count=keyword_count,
+            priority=priority,
+            is_vector_conversion=is_vector_conversion,
+        )
+        if isinstance(result, dict) and "error" not in result:
+            return _sanitize_title_length(_fill_keywords_if_short(result, keyword_count))
+        return result
 
     result = module.get_openai_metadata(
         image_path,
@@ -390,8 +412,22 @@ def get_metadata(
     return result
 
 
-def check_api_keys_status(provider: str, api_keys: Iterable[str], model: Optional[str] = None):
+def check_api_keys_status(
+    provider: str,
+    api_keys: Iterable[str],
+    model: Optional[str] = None,
+    base_url_override: Optional[str] = None,
+):
     module, provider_key = get_provider_module(provider)
+    if provider_key == PROVIDER_CUSTOM:
+        effective_base_url = (base_url_override or "").strip()
+        if not effective_base_url:
+            return {k: (-1, "Custom provider requires a Base URL") for k in api_keys}
+        return openrouter_api.check_api_keys_status(
+            list(api_keys),
+            model=model,
+            base_url_override=effective_base_url,
+        )
     if module is None:
         return {k: (-1, "No module for this provider") for k in api_keys}
     return module.check_api_keys_status(list(api_keys), model=model)
