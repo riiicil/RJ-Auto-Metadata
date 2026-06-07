@@ -1,10 +1,10 @@
 # Current State — RJ Auto Metadata
 
-> Snapshot at Phase 4C Step 3 completion.
+> Snapshot at iLabs Integration & Space Preservation (v3.12.3) completion.
 
 ## Version
 
-**3.12.2** (tagged `v3.12.2` on `main`)
+**3.12.3**
 
 ## Branch Structure
 
@@ -17,6 +17,7 @@
 - `task/dynamic-prompt-builder` — Phase 4B work branch (merged to dev)
 - `task/wire-advanced-params` — Phase 4C Step 3 work branch (merged to dev)
 - `kaine-na:task/fix-custom-provider-base-url` — Phase 4E work branch (merged to main via PR #4)
+- `task/integrate-ilabs-and-fix-spaces` — iLabs Integration and Spaces Fix (current work branch)
 
 ## Supported Providers
 
@@ -29,6 +30,7 @@
 | **KoboiLLM** | Chat Completions | Unchanged |
 | **Mistral** | OpenAI compat (`/v1`) | Added in Phase 4A |
 | **Blackbox** | OpenAI compat (`/`) | Added in Phase 4A |
+| **iLabs** | OpenAI compat (`/v1`) | Added in Phase 4F |
 | **Custom** | User-defined base URL | Added in Phase 1, UI added in Phase 2, fully wired in Phase 4E |
 
 ## Technical Debt Resolved in Phase 1
@@ -133,6 +135,13 @@
 - **New `src/processing/error_classifier.py`**: Dependency-free helper mapping config error codes (`custom_provider_no_base_url`, `custom_provider_no_model`, `openrouter_no_model`) to `failed_config` non-retryable status; prevents burning 5 retry rounds on user config mistakes.
 - **New `tests/api/test_custom_provider_smoke.py`**: 11 smoke tests covering endpoint resolution, threaded override, missing-URL/model guards, dispatcher routing, error-classifier demotion, and end-to-end URL correctness. No network required.
 - **Version bumped to 3.12.2**.
+
+## Changes in Phase 4F (iLabs & Keyword Spaces)
+
+- **iLabs Provider Integration**: Integrated support for iLabs as a new OpenAI-compatible AI gateway provider. Created `src/api/ilabs_api.py` and registered it in `provider_manager.py`. It is automatically dynamically loaded into the UI dropdown.
+- **Keyword Space Preservation**: Removed the space-stripping block inside `provider_manager.py`s `_fill_keywords_if_short()` -> `add_tag()`. Multi-word keywords (e.g., `"railway station"`) are now correctly preserved with spaces intact, affecting both EXIF and CSV output.
+- **New `tests/api/test_ilabs_and_spaces.py`**: Added unit tests validating that iLabs is listed under registered providers, and asserting that spaces in multi-word keywords are not stripped during processing.
+- **Version bumped to 3.12.3**.
 
 ## Remaining Technical Debt
 

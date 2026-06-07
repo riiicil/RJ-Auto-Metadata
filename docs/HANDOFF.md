@@ -12,6 +12,8 @@
 >
 > **v3.12.2** (May 2026) is a hotfix release that makes the Custom provider fully functional end-to-end (PR #4 by `kaine-na`).
 >
+> **v3.12.3** (June 2026) is a feature and bugfix release integrating the iLabs OpenAI-compatible provider and resolving the keyword space-stripping bug in the metadata generation pipeline.
+>
 > The "v4" label in docs = future architectural goal, not the next version number on the release page.
 
 ## Phase 0 Status: Complete
@@ -214,9 +216,18 @@ Both are now resolved by the single centralized flag and the separated UI/stop-s
 - **New `tests/api/test_custom_provider_smoke.py`**: 11 smoke tests (no network).
 - **Version bumped to 3.12.2**.
 
+## Phase 4F Status: Complete (iLabs & Keyword Spaces)
+
+### What Was Done
+
+- **iLabs Provider Integration**: Integrated support for iLabs as a new OpenAI-compatible AI gateway provider. Created `src/api/ilabs_api.py` and registered it in `provider_manager.py`. The provider is loaded dynamically into the UI dropdown.
+- **Keyword Space Preservation**: Removed the space-stripping block inside `provider_manager.py`'s `_fill_keywords_if_short()` -> `add_tag()`. Multi-word keywords (e.g. `"railway station"`) are now correctly preserved with spaces intact, affecting both EXIF and CSV output.
+- **New `tests/api/test_ilabs_and_spaces.py`**: Added unit tests validating that iLabs is listed under registered providers, and asserting that spaces in multi-word keywords are not stripped during processing.
+- **Version bumped to 3.12.3**.
+
 ## Next Phase
 
-Dev branch has been merged to main and released as **v3.12.0** and hotfixed as **v3.12.1** and **v3.12.2** (May 2026). The next work is the architectural refactoring described in docs/CODEBASE_ANALYSIS.md: splitting app.py into focused modules, creating a unified API base class, decoupling batch processing, and completing the normalization described in docs/ANALISYS_REFACTORING.md.
+Dev branch has been merged to main and released as **v3.12.0** and hotfixed as **v3.12.1**, **v3.12.2** (May 2026), and **v3.12.3** (June 2026). The next work is the architectural refactoring described in docs/CODEBASE_ANALYSIS.md: splitting app.py into focused modules, creating a unified API base class, decoupling batch processing, and completing the normalization described in docs/ANALISYS_REFACTORING.md.
 
 ## Key Decisions Already Made
 
