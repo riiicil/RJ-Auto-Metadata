@@ -14,8 +14,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# src/api/ilabs_api.py
-"""iLabs AI provider — OpenAI-compatible endpoint."""
+# src/api/aivene_api.py
+"""Aivene AI provider — OpenAI-compatible endpoint."""
 
 import base64
 
@@ -26,7 +26,7 @@ from src.utils.json_utils import _clean_json_text
 from src.utils.logging import log_message
 from src.utils.stop_flag import is_stop_requested
 
-BASE_URL = "https://api.thisilabs.com/v1"
+BASE_URL = "https://api.aivene.com/v1"
 
 
 def check_stop_event(stop_event, message=None):
@@ -50,7 +50,7 @@ def select_api_key(api_keys: list) -> str | None:
 
 
 def check_api_keys_status(api_keys: list, model: str = None) -> dict:
-    """Check validity of one or more iLabs API keys."""
+    """Check validity of one or more Aivene API keys."""
     results = {}
     client_model = model or "gpt-4o-mini"
     for key in api_keys:
@@ -75,7 +75,7 @@ def check_api_keys_status(api_keys: list, model: str = None) -> dict:
     return results
 
 
-def get_ilabs_metadata(
+def get_aivene_metadata(
     image_path,
     api_key: str,
     stop_event,
@@ -86,8 +86,8 @@ def get_ilabs_metadata(
     priority: str = "Detailed",
     is_vector_conversion: bool = False,
 ):
-    """Send an image to iLabs and return parsed metadata dict."""
-    if check_stop_event(stop_event, "iLabs: stop requested before request"):
+    """Send an image to Aivene and return parsed metadata dict."""
+    if check_stop_event(stop_event, "Aivene: stop requested before request"):
         return {"error": "stopped"}
 
     try:
@@ -102,7 +102,7 @@ def get_ilabs_metadata(
         priority=priority,
         use_png_prompt=use_png_prompt,
         use_video_prompt=use_video_prompt,
-        provider="ilabs",
+        provider="aivene",
     )
 
     system_message = (
@@ -159,7 +159,7 @@ def get_ilabs_metadata(
             max_tokens=2048,
         )
 
-        if check_stop_event(stop_event, "iLabs: stop requested after response"):
+        if check_stop_event(stop_event, "Aivene: stop requested after response"):
             return {"error": "stopped"}
 
         raw = response.choices[0].message.content or ""
@@ -177,9 +177,9 @@ def get_ilabs_metadata(
             metadata["tags"] = []
         metadata.pop("keywords", None)
 
-        log_message("Metadata successfully extracted from iLabs response", "success")
+        log_message("Metadata successfully extracted from Aivene response", "success")
         return metadata
 
     except Exception as e:
-        log_message(f"iLabs request failed: {e}", "error")
+        log_message(f"Aivene request failed: {e}", "error")
         return {"error": str(e)}
