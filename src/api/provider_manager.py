@@ -22,7 +22,7 @@ import re
 
 from src.api import (
     gemini_api, openai_api, openrouter_api, groq_api, koboillm_api,
-    mistral_api, blackbox_api, ilabs_api,
+    mistral_api, blackbox_api, aivene_api,
 )
 from src.utils.logging import log_message
 from src.utils import stop_flag as _stop_flag
@@ -30,7 +30,7 @@ from src.utils import stop_flag as _stop_flag
 PROVIDER_GEMINI = "Gemini"
 PROVIDER_OPENAI = "OpenAI"
 PROVIDER_OPENROUTER = "OpenRouter"
-PROVIDER_ILABS = "iLabs"
+PROVIDER_AIVENE = "Aivene"
 PROVIDER_GROQ = "Groq"
 PROVIDER_KOBOILLM = "KoboiLLM"
 PROVIDER_CUSTOM = "Custom"
@@ -42,7 +42,7 @@ PROVIDER_BASE_URLS = {
     PROVIDER_GEMINI: "https://generativelanguage.googleapis.com/v1beta/openai/",
     PROVIDER_OPENAI: "https://api.openai.com/v1",
     PROVIDER_OPENROUTER: "https://openrouter.ai/api/v1",
-    PROVIDER_ILABS: "https://api.thisilabs.com/v1",
+    PROVIDER_AIVENE: "https://api.aivene.com/v1",
     PROVIDER_GROQ: "https://api.groq.com/openai/v1",
     PROVIDER_KOBOILLM: "https://litellm.koboi2026.biz.id",
     PROVIDER_MISTRAL: "https://api.mistral.ai/v1",
@@ -63,8 +63,8 @@ _PROVIDERS = {
         "module": openrouter_api,
         "supports_auto_rotation": False,
     },
-    PROVIDER_ILABS: {
-        "module": ilabs_api,
+    PROVIDER_AIVENE: {
+        "module": aivene_api,
         "supports_auto_rotation": False,
     },
     PROVIDER_GROQ: {
@@ -380,8 +380,8 @@ def get_metadata(
         if isinstance(result, dict) and "error" not in result:
             return _sanitize_title_length(_fill_keywords_if_short(result, keyword_count))
         return result
-    if provider_key == PROVIDER_ILABS:
-        result = module.get_ilabs_metadata(
+    if provider_key == PROVIDER_AIVENE:
+        result = module.get_aivene_metadata(
             image_path,
             api_key,
             stop_event,

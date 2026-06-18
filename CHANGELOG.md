@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.12.3] - 2026-06-07
 
 ### Added
-- **iLabs Provider**: Integrated support for iLabs as a new OpenAI-compatible AI gateway provider, mapping its completions endpoint (`https://api.thisilabs.com/v1`) and default models.
+- **Aivene Provider**: Integrated support for Aivene as a new OpenAI-compatible AI gateway provider, mapping its completions endpoint (`https://api.aivene.com/v1`) and default models.
 
 ### Fixed
 - **Keyword Space-Stripping**: Resolved a bug in the metadata keyword-filling pipeline where multi-word keywords containing spaces (e.g., `"railway station"`, `"steam locomotive"`) had their spaces stripped (e.g., turning into `"railwaystation"`), ensuring they remain intact in both the EXIF embedding and CSV export outputs.
